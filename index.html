@@ -184,11 +184,12 @@
   .spec-head b{color:var(--green);font-size:14px}
   .spec-bar{height:12px;background:#edeff3;border-radius:20px;overflow:hidden}
   .spec-fill{height:100%;background:var(--green);border-radius:20px;transition:width .3s}
-  .passort{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid var(--line);margin-top:2px}
+  .passort{width:100%;min-width:0;border-collapse:collapse;font-size:12px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid var(--line);margin-top:2px}
   .passort th,.passort td{padding:8px 10px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
   .passort th{background:#f0f2f6;font-weight:700;font-size:11px;color:#4a5060}
-  .passort td.cname{text-align:left;font-weight:700}
+  .passort th:first-child,.passort td.cname{width:1%;text-align:left;font-weight:700;padding-right:20px}
   .passort td.z{color:#cfd2dd} .passort td.sum{font-weight:800;color:var(--blue)}
+  .passort tr.rem-sum td{background:#fbeaea;font-weight:800}
   .passort tr:last-child td{border-bottom:none}
   .passort-wrap{overflow-x:auto;margin-top:10px}
   .rc-badge.c0{background:var(--green-soft);color:var(--green)}
@@ -451,16 +452,27 @@ function receiptDetail(g){
   const otherCard=otherDone>0?`<div class="rcard"><div class="rcard-top"><span class="rc-badge c0">입고완료</span><span class="rc-date">세부 차수 미기입</span><span class="rc-spacer"></span><span class="rc-total">${fmt(otherDone)} Pcs</span><span class="tag tag-done">완료</span></div></div>`:'';
   const chasuSection=`<div class="det-h" style="margin-top:20px">📦 생산 차수별 파샬 입고 및 입고 아소트 현황</div><div class="rcards">${cards||'<div class="rcard"><div class="rcard-top"><span class="rc-date">기록된 파샬 입고 내역이 없습니다.</span></div></div>'}${otherCard}</div>`;
 
-  /* 4) 미입고 잔량 */
+  /* 4) 미입고 잔량 (컬러·사이즈별) */
+  const remByColor=g.colors.map(c=>{
+    const rc={};
+    if(c.partials&&c.partials.length){c.partials.forEach(p=>{if(p.sizes)for(const s in p.sizes)rc[s]=(rc[s]||0)+(p.sizes[s]||0);});}
+    else if(isDone(c)&&c.sizes){for(const s in c.sizes)rc[s]=(rc[s]||0)+(c.sizes[s]||0);}
+    const rem={}; let tot=0;
+    ds.forEach(s=>{const r=Math.max(0,((c.sizes&&c.sizes[s])||0)-(rc[s]||0)); if(r){rem[s]=r; tot+=r;}});
+    return {color:c.color,sizes:rem,total:tot};
+  }).filter(x=>x.total>0);
+  const remColTot={}; ds.forEach(s=>remColTot[s]=remByColor.reduce((a,rc)=>a+(rc.sizes[s]||0),0));
+  const remGrand=remByColor.reduce((a,rc)=>a+rc.total,0);
   let remSection;
-  if(remTotal>0){
+  if(remGrand>0){
+    const remBody=remByColor.map(rc=>`<tr><td class="cname">${colorSw(rc.color)}</td>${sizeRow(rc.sizes,ds)}<td class="sum" style="color:var(--red)">${fmt(rc.total)}</td></tr>`).join('');
+    const remSum=`<tr class="rem-sum"><td class="cname">합계</td>${sizeRow(remColTot,ds)}<td class="sum" style="color:var(--red)">${fmt(remGrand)}</td></tr>`;
     remSection=`<div class="det-h" style="margin-top:20px">⚠️ 미입고 잔량 아소트 분석 및 입고예정일</div>
       <div class="rcard rem"><div class="rcard-top"><span class="rc-badge">미입고 잔량</span>
       <span class="rc-date">예정일 ${g.dueDate||'미정'}</span><span class="rc-spacer"></span>
-      <span class="rc-ratio">미입고율 ${g.total?Math.round(remTotal/g.total*100):0}%</span>
-      <span class="rc-total" style="color:var(--red)">${fmt(remTotal)} Pcs</span></div>
-      <div class="passort-wrap"><table class="passort"><thead><tr>${ds.map(s=>`<th>${s}</th>`).join('')}<th>미입고 총잔량</th></tr></thead>
-      <tbody><tr>${sizeRow(remSizes,ds)}<td class="sum" style="color:var(--red)">${fmt(remTotal)}</td></tr></tbody></table></div>
+      <span class="rc-ratio">미입고율 ${g.total?Math.round(remGrand/g.total*100):0}%</span>
+      <span class="rc-total" style="color:var(--red)">${fmt(remGrand)} Pcs</span></div>
+      <div class="passort-wrap"><table class="passort"><thead>${colHead.replace('합계','미입고 총잔량')}</thead><tbody>${remBody}${remSum}</tbody></table></div>
       <div style="font-size:11px;color:var(--muted);margin-top:8px">❗ 미입고 잔량은 공장 및 물류 입고 일정 변동에 따라 차기 파샬 입고 차수로 자동 할당됩니다.</div></div>`;
   } else {
     remSection=`<div class="det-h" style="margin-top:20px">✅ 미입고 잔량</div><div class="rcard"><div class="rcard-top"><span class="rc-badge c0">전량 입고 완료</span><span class="rc-spacer"></span><span class="rc-total" style="color:var(--green)">잔량 0</span></div></div>`;

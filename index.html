@@ -7,8 +7,8 @@
 <style>
   :root{
     --panel:#fff; --panel-2:#f4f5f7; --ink:#20242e; --muted:#6b7280; --line:#e3e5ea;
-    --blue:#3f5d80; --blue-soft:#eef2f7; --violet:#6a6285; --violet-soft:#eeecf3;
-    --green:#3f8560; --green-soft:#e8f1ec; --amber:#b7822f; --amber-soft:#f6efe1;
+    --blue:#3d6fd0; --blue-soft:#eaf1fd; --violet:#7b5fc9; --violet-soft:#f0ecfa;
+    --green:#1f9d57; --green-soft:#e4f5eb; --amber:#e0912a; --amber-soft:#fbf1de;
     --grey:#6b7280; --grey-soft:#eceef2; --red:#c0504d;
     --shadow:0 1px 2px rgba(20,24,36,.06),0 1px 3px rgba(20,24,36,.05);
   }
@@ -166,6 +166,35 @@
   .loadmore{margin-top:14px;text-align:center}
   .loadmore button{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 22px;font-weight:700;cursor:pointer;font-size:13px}
   .hidden{display:none}
+  /* ---- 상세 모달 ---- */
+  .modal-overlay{position:fixed;inset:0;background:rgba(18,22,33,.55);display:flex;align-items:flex-start;justify-content:center;padding:44px 20px;overflow-y:auto;z-index:200}
+  .modal-overlay.hidden{display:none}
+  .modal{background:#fff;border-radius:14px;max-width:900px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden;animation:mpop .16s ease-out}
+  @keyframes mpop{from{transform:translateY(8px);opacity:.4}to{transform:none;opacity:1}}
+  .modal-head{display:flex;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:2}
+  .modal-head .m-badge{font-size:12px;font-weight:800;padding:4px 10px;border-radius:7px;background:var(--blue-soft);color:var(--blue);white-space:nowrap}
+  .modal-head h3{font-size:17px;margin:0;font-weight:800;line-height:1.3}
+  .modal-head .m-rate-k{font-size:12px;color:var(--muted);font-weight:700;margin-left:2px}
+  .modal-head .m-rate{font-size:12px;font-weight:800;padding:4px 10px;border-radius:20px}
+  .modal-close{margin-left:auto;background:none;border:none;font-size:24px;line-height:1;cursor:pointer;color:var(--muted);padding:2px 6px;border-radius:8px}
+  .modal-close:hover{background:var(--panel-2);color:var(--ink)}
+  .modal-body{padding:22px 24px}
+  .spectrum{margin-bottom:22px}
+  .spec-head{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px}
+  .spec-head b{color:var(--green);font-size:14px}
+  .spec-bar{height:12px;background:#edeff3;border-radius:20px;overflow:hidden}
+  .spec-fill{height:100%;background:var(--green);border-radius:20px;transition:width .3s}
+  .passort{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid var(--line);margin-top:2px}
+  .passort th,.passort td{padding:8px 10px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+  .passort th{background:#f0f2f6;font-weight:700;font-size:11px;color:#4a5060}
+  .passort td.cname{text-align:left;font-weight:700}
+  .passort td.z{color:#cfd2dd} .passort td.sum{font-weight:800;color:var(--blue)}
+  .passort tr:last-child td{border-bottom:none}
+  .passort-wrap{overflow-x:auto;margin-top:10px}
+  .rc-badge.c0{background:var(--green-soft);color:var(--green)}
+  .rc-badge.c1{background:var(--amber-soft);color:var(--amber)}
+  .rc-badge.c2{background:var(--blue-soft);color:var(--blue)}
+  .rc-badge.c3{background:var(--violet-soft);color:var(--violet)}
 </style>
 </head>
 <body>
@@ -223,6 +252,13 @@
     </div>
 
     <div class="panel hidden" id="calPanel"><div id="cal"></div></div>
+  </div>
+
+  <div class="modal-overlay hidden" id="modal">
+    <div class="modal" id="modalBox">
+      <div class="modal-head" id="modalHead"></div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
   </div>
 
 <script>
@@ -366,57 +402,79 @@ function assortTable(g){
   }).join('');
   return `<div class="assort-wrap"><table class="assort"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
 }
-const SZ6=['F','XS','S','M','L','XL'];
-function szCells(sizesObj,ds){return ds.map(s=>{const v=(sizesObj&&sizesObj[s])||0;return `<div class="szc"><div class="szk">${s}</div><div class="szv ${v?'':'z'}">${fmt(v)}</div></div>`;}).join('');}
+function sizeRow(sizesObj,ds){return ds.map(s=>{const v=(sizesObj&&sizesObj[s])||0;return `<td class="${v?'':'z'}">${v?fmt(v):'-'}</td>`;}).join('');}
 function receiptDetail(g){
-  const order={}; SIZES.forEach(s=>order[s]=0);
-  g.colors.forEach(c=>{if(c.sizes)for(const s in c.sizes)order[s]+=c.sizes[s];});
-  const ds=SIZES.filter(s=>order[s]>0);
+  const order={};
+  g.colors.forEach(c=>{if(c.sizes)for(const s in c.sizes)order[s]=(order[s]||0)+(c.sizes[s]||0);});
+  /* 차수별 · 컬러별 집계 */
   const chMap={};
-  g.colors.forEach(c=>(c.partials||[]).forEach(p=>{const e=chMap[p.n]=chMap[p.n]||{n:p.n,total:0,sizes:{},dates:[]};e.total+=p.total;if(p.date)e.dates.push(p.date);SZ6.forEach(s=>{if(p.sizes&&p.sizes[s])e.sizes[s]=(e.sizes[s]||0)+p.sizes[s];});}));
+  g.colors.forEach(c=>(c.partials||[]).forEach(p=>{
+    const e=chMap[p.n]=chMap[p.n]||{n:p.n,total:0,dates:[],byColor:{}};
+    e.total+=p.total||0; if(p.date)e.dates.push(p.date);
+    const bc=e.byColor[c.color]=e.byColor[c.color]||{color:c.color,total:0,sizes:{}};
+    bc.total+=p.total||0;
+    if(p.sizes)for(const s in p.sizes)bc.sizes[s]=(bc.sizes[s]||0)+(p.sizes[s]||0);
+  }));
   const chasu=Object.values(chMap).sort((a,b)=>a.n-b.n);
   chasu.forEach(e=>e.date=e.dates.length?e.dates.slice().sort()[0]:'');
   const partialTotal=chasu.reduce((s,e)=>s+e.total,0);
-  const recvSizes={}; SIZES.forEach(s=>recvSizes[s]=0);
+  /* 입고 · 잔량 사이즈 */
+  const recvSizes={};
   g.colors.forEach(c=>{
-    if(c.partials&&c.partials.length){c.partials.forEach(p=>SZ6.forEach(s=>{if(p.sizes&&p.sizes[s])recvSizes[s]+=p.sizes[s];}));}
-    else if(isDone(c)&&c.sizes){for(const s in c.sizes)recvSizes[s]+=c.sizes[s];}
+    if(c.partials&&c.partials.length){c.partials.forEach(p=>{if(p.sizes)for(const s in p.sizes)recvSizes[s]=(recvSizes[s]||0)+(p.sizes[s]||0);});}
+    else if(isDone(c)&&c.sizes){for(const s in c.sizes)recvSizes[s]=(recvSizes[s]||0)+(c.sizes[s]||0);}
   });
-  const remSizes={}; SIZES.forEach(s=>remSizes[s]=Math.max(0,order[s]-recvSizes[s]));
   const remTotal=Math.max(0,g.total-g.recv);
+  const remSizes={}; SIZES.forEach(s=>{const r=Math.max(0,(order[s]||0)-(recvSizes[s]||0)); if(r)remSizes[s]=r;});
+  const ds=SIZES.filter(s=>(order[s]||0)>0||(recvSizes[s]||0)>0||(remSizes[s]||0)>0);
   const otherDone=Math.max(0,g.recv-partialTotal);
-  const PAL=['#3b5bff','#5b8def','#16a34a','#7c3aed','#f59e0b'];
-  let segs='';
-  chasu.forEach(e=>{const w=g.total?e.total/g.total*100:0;segs+=`<div class="rseg" style="width:${w}%;background:${PAL[(e.n-1)%5]}" title="${e.n}차 ${fmt(e.total)}">${w>7?e.n+'차':''}</div>`;});
-  if(otherDone>0){const w=g.total?otherDone/g.total*100:0;segs+=`<div class="rseg" style="width:${w}%;background:#22c55e" title="입고완료 ${fmt(otherDone)}">${w>10?'완료':''}</div>`;}
-  if(remTotal>0){const w=g.total?remTotal/g.total*100:0;segs+=`<div class="rseg" style="width:${w}%;background:#d9dce3;color:#6b7280" title="잔량 ${fmt(remTotal)}">${w>10?'잔량':''}</div>`;}
-  const legend=`<div class="rlegend">${chasu.map(e=>`<span><i style="background:${PAL[(e.n-1)%5]}"></i>${e.n}차 ${fmt(e.total)} (${e.date||'미정'})</span>`).join('')}${otherDone>0?`<span><i style="background:#22c55e"></i>입고완료 ${fmt(otherDone)}</span>`:''}${remTotal>0?`<span><i style="background:#d9dce3"></i>잔량 ${fmt(remTotal)}</span>`:''}</div>`;
-  const cards=chasu.map(e=>`<div class="rcard">
-     <div class="rcard-top"><span class="rc-badge">${e.n}차 입고</span><span class="rc-date">${e.date||'미정'}</span>
-       <span class="rc-spacer"></span><span class="rc-ratio">배정 ${g.total?Math.round(e.total/g.total*100):0}%</span>
-       <span class="rc-total">${fmt(e.total)} Pcs</span><span class="tag tag-done">완료</span></div>
-     ${ds.length?`<div class="szgrid">${szCells(e.sizes,ds)}</div>`:''}</div>`).join('');
-  const otherCard=otherDone>0?`<div class="rcard"><div class="rcard-top"><span class="rc-badge" style="background:var(--green-soft);color:var(--green)">입고완료</span><span class="rc-date">세부 차수 미기입</span><span class="rc-spacer"></span><span class="rc-total">${fmt(otherDone)} Pcs</span><span class="tag tag-done">완료</span></div></div>`:'';
-  const remCard=remTotal>0?`<div class="rcard rem"><div class="rcard-top"><span class="rc-badge">미입고 잔량</span>
-     <span class="rc-date">예정일 ${g.dueDate||'미정'}</span><span class="rc-spacer"></span>
-     <span class="rc-ratio">미입고율 ${g.total?Math.round(remTotal/g.total*100):0}%</span><span class="rc-total" style="color:var(--red)">${fmt(remTotal)} Pcs</span></div>
-     ${ds.length?`<div class="szgrid">${szCells(remSizes,ds)}</div>`:''}</div>`
-     :`<div class="rcard"><div class="rcard-top"><span class="rc-badge" style="background:var(--green-soft);color:var(--green)">✔ 전량 입고 완료</span><span class="rc-spacer"></span><span class="rc-total" style="color:var(--green)">잔량 0</span></div></div>`;
-  const meta=`<div class="metastrip">
+  const colHead=`<tr><th style="text-align:left">컬러</th>${ds.map(s=>`<th>${s}</th>`).join('')}<th>합계</th></tr>`;
+
+  /* 1) 진행 스펙트럼 */
+  const spectrum=`<div class="spectrum">
+    <div class="spec-head"><span>전체 생산 진행 스펙트럼</span><span><b>${g.rate}%</b> 입고 완료 (${fmt(g.recv)} / ${fmt(g.total)} Pcs)</span></div>
+    <div class="spec-bar"><div class="spec-fill" style="width:${Math.min(g.rate,100)}%"></div></div></div>`;
+
+  /* 2) 기획 아소트 (컬러×사이즈×합계) */
+  const planBody=g.colors.map(c=>`<tr><td class="cname">${colorSw(c.color)}</td>${sizeRow(c.sizes,ds)}<td class="sum">${fmt(c.total)}</td></tr>`).join('');
+  const planTable=`<div class="det-h">📐 기획 아소트 세부 분배 현황</div><div class="passort-wrap"><table class="passort"><thead>${colHead}</thead><tbody>${planBody}</tbody></table></div>`;
+
+  /* 3) 차수별 파샬 입고 (컬러 포함) */
+  const cards=chasu.map((e,i)=>{
+    const rows=Object.values(e.byColor).map(bc=>`<tr><td class="cname">${colorSw(bc.color)}</td>${sizeRow(bc.sizes,ds)}<td class="sum">${fmt(bc.total)}</td></tr>`).join('');
+    const tbl=`<div class="passort-wrap"><table class="passort"><thead>${colHead}</thead><tbody>${rows}</tbody></table></div>`;
+    return `<div class="rcard">
+      <div class="rcard-top"><span class="rc-badge c${i%4}">${e.n}차 입고</span><span class="rc-date">${e.date||'미정'} 입고</span>
+      <span class="rc-spacer"></span><span class="rc-ratio">배정비율 ${g.total?Math.round(e.total/g.total*100):0}%</span>
+      <span class="rc-total">${fmt(e.total)} Pcs</span><span class="tag tag-done">완료</span></div>${tbl}</div>`;
+  }).join('');
+  const otherCard=otherDone>0?`<div class="rcard"><div class="rcard-top"><span class="rc-badge c0">입고완료</span><span class="rc-date">세부 차수 미기입</span><span class="rc-spacer"></span><span class="rc-total">${fmt(otherDone)} Pcs</span><span class="tag tag-done">완료</span></div></div>`:'';
+  const chasuSection=`<div class="det-h" style="margin-top:20px">📦 생산 차수별 파샬 입고 및 입고 아소트 현황</div><div class="rcards">${cards||'<div class="rcard"><div class="rcard-top"><span class="rc-date">기록된 파샬 입고 내역이 없습니다.</span></div></div>'}${otherCard}</div>`;
+
+  /* 4) 미입고 잔량 */
+  let remSection;
+  if(remTotal>0){
+    remSection=`<div class="det-h" style="margin-top:20px">⚠️ 미입고 잔량 아소트 분석 및 입고예정일</div>
+      <div class="rcard rem"><div class="rcard-top"><span class="rc-badge">미입고 잔량</span>
+      <span class="rc-date">예정일 ${g.dueDate||'미정'}</span><span class="rc-spacer"></span>
+      <span class="rc-ratio">미입고율 ${g.total?Math.round(remTotal/g.total*100):0}%</span>
+      <span class="rc-total" style="color:var(--red)">${fmt(remTotal)} Pcs</span></div>
+      <div class="passort-wrap"><table class="passort"><thead><tr>${ds.map(s=>`<th>${s}</th>`).join('')}<th>미입고 총잔량</th></tr></thead>
+      <tbody><tr>${sizeRow(remSizes,ds)}<td class="sum" style="color:var(--red)">${fmt(remTotal)}</td></tr></tbody></table></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px">❗ 미입고 잔량은 공장 및 물류 입고 일정 변동에 따라 차기 파샬 입고 차수로 자동 할당됩니다.</div></div>`;
+  } else {
+    remSection=`<div class="det-h" style="margin-top:20px">✅ 미입고 잔량</div><div class="rcard"><div class="rcard-top"><span class="rc-badge c0">전량 입고 완료</span><span class="rc-spacer"></span><span class="rc-total" style="color:var(--green)">잔량 0</span></div></div>`;
+  }
+
+  const meta=`<div class="metastrip" style="margin-top:20px">
      <div class="mi"><span>생산처</span><b>${g.vendor||'-'}</b></div>
      <div class="mi"><span>생산원가</span><b>${g.cost?'₩'+fmt(g.cost):'-'}</b></div>
      <div class="mi"><span>실판매가</span><b>${g.price?'₩'+fmt(g.price):'-'}</b></div>
      <div class="mi"><span>UP-TAG</span><b>${g.uptag?'₩'+fmt(g.uptag):'-'}</b></div>
      <div class="mi"><span>투입일</span><b>${g.inDate||'-'}</b></div>
      <div class="mi"><span>최초입고</span><b>${g.inputMin||'-'}</b></div></div>`;
-  return `<div class="rsum"><div class="rsum-line">
-      <span><span class="k">총 오더수량</span><span class="big">${fmt(g.total)}</span></span>
-      <span><span class="k">입고</span><span class="big g">${fmt(g.recv)}</span> <span class="b">(${g.rate}%)</span></span>
-      <span><span class="k">미입고 잔량</span><span class="big a">${fmt(remTotal)}</span></span>
-      <span><span class="k">입고 예정일</span><b>${g.dueDate||'미정'}</b></span></div>
-      <div class="rbar">${segs}</div>${legend}</div>
-    <div class="det-h">📦 차수별 입고 현황</div><div class="rcards">${cards}${otherCard}${remCard}</div>
-    <div class="det-h" style="margin-top:16px">🎨 컬러별 오더 / 입고</div>${assortTable(g)}${meta}`;
+
+  return spectrum+planTable+chasuSection+remSection+meta;
 }
 function infoDetail(g){
   const dateRange=g.inputMin?(g.inputMin===g.inputMax?g.inputMin:`${g.inputMin} ~ ${g.inputMax}`):'-';
@@ -430,9 +488,9 @@ function infoDetail(g){
 
 /* ---------- 행 렌더 ---------- */
 function groupRowHTML(g){
-  const isOpen=openKeys.has(g.key),done=g.done;
+  const done=g.done;
   const tag=done?'<span class="tag tag-done">완료</span>':'<span class="tag tag-prog">진행중</span>';
-  const row=`<tr class="row ${isOpen?'open':''} ${done?'done':''}" data-key="${g.key}">
+  const row=`<tr class="row ${done?'done':''}" data-key="${g.key}">
     <td><span class="chev">▶</span><span class="badge">${g.ord||'-'}</span></td>
     <td>${g.gender}</td>
     <td><span class="style-link">${g.style}</span></td>
@@ -445,17 +503,32 @@ function groupRowHTML(g){
     <td style="font-size:12px">${g.dueDate||'-'}</td>
     <td style="text-align:center"><span class="rate ${rateClsN(g.rate)}">${g.rate}%${g.assumedAny?'<span class="astk">*</span>':''}</span></td>
     <td style="text-align:center">${tag}</td></tr>`;
-  const det=isOpen?`<tr class="detail"><td colspan="12"><div class="detail-inner">${receiptDetail(g)}</div></td></tr>`:'';
-  return row+det;
+  return row;
 }
 function paint(){
   const tb=document.getElementById('tbody');
   tb.innerHTML=filtered.slice(0,shown).map(groupRowHTML).join('') ||
     `<tr><td colspan="12"><div class="empty"><div class="big">🔍</div>조건에 맞는 데이터가 없습니다.</div></td></tr>`;
   tb.querySelectorAll('tr.row').forEach(tr=>tr.addEventListener('click',()=>{
-    const k=tr.dataset.key; openKeys.has(k)?openKeys.delete(k):openKeys.add(k); paint();
+    const g=filtered.find(x=>x.key===tr.dataset.key); if(g)openModal(g);
   }));
 }
+function openModal(g){
+  const colors=g.colors.map(c=>c.color).filter(Boolean).join(' / ');
+  document.getElementById('modalHead').innerHTML=
+    `<span class="m-badge">${g.style}</span>`+
+    `<h3>${g.prod}${colors?` <span style="color:var(--muted);font-weight:700;font-size:14px">(${colors})</span>`:''}</h3>`+
+    `<span class="m-rate-k">총 입고율</span><span class="rate ${rateClsN(g.rate)} m-rate">${g.rate}%</span>`+
+    `<button class="modal-close" id="modalClose" aria-label="닫기">×</button>`;
+  document.getElementById('modalBody').innerHTML=receiptDetail(g);
+  const box=document.getElementById('modalBox'); if(box)box.scrollTop=0;
+  document.getElementById('modal').classList.remove('hidden');
+  document.body.style.overflow='hidden';
+  document.getElementById('modalClose').addEventListener('click',closeModal);
+}
+function closeModal(){document.getElementById('modal').classList.add('hidden');document.body.style.overflow='';}
+document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 function render(reset){
   if(reset){applyFilter();shown=Math.min(PAGE,filtered.length);} else {shown=Math.min(shown+PAGE,filtered.length);}
   paint();

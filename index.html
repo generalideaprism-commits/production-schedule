@@ -14,49 +14,24 @@
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:'Pretendard','Segoe UI',-apple-system,BlinkMacSystemFont,'Malgun Gothic',sans-serif;background:var(--panel-2);color:var(--ink);-webkit-font-smoothing:antialiased}
-  .topbar{background:#1b2130;color:#fff;padding:14px 26px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;border-bottom:1px solid #2a3142}
-  .season{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);font-size:11px;font-weight:800;letter-spacing:.08em;padding:5px 10px;border-radius:7px}
-  .topbar h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.01em}
-  .topbar .spacer{flex:1}
-  .status{display:flex;align-items:center;gap:7px;background:rgba(22,163,74,.16);border:1px solid rgba(22,163,74,.35);color:#9be7b4;font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px}
-  .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(22,163,74,.25)}
   .wrap{max-width:1500px;margin:0 auto;padding:24px}
-  .season-strip{background:#242a38;color:#fff;border-radius:10px;padding:18px 24px;margin-bottom:20px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;box-shadow:var(--shadow)}
-  .season-strip .ss-title{font-size:14px;font-weight:800;display:flex;flex-direction:column;gap:2px}
-  .season-strip .ss-title small{font-weight:600;color:#aab0c4;font-size:11px}
-  .season-strip .ss-bar{flex:1;min-width:200px;height:14px;background:rgba(255,255,255,.12);border-radius:20px;overflow:hidden}
-  .season-strip .ss-fill{height:100%;background:var(--blue);border-radius:20px}
-  .season-strip .ss-metrics{display:flex;gap:24px;flex-wrap:wrap}
-  .season-strip .m .k{font-size:11px;color:#aab0c4;font-weight:600}
-  .season-strip .m .v{font-size:20px;font-weight:800}
-  .season-strip .m .v.g{color:#6ee7a0} .season-strip .m .v.a{color:#ffcf7a}
-  .season-strip .ss-pct{font-size:32px;font-weight:800;line-height:1}
-  .cards{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-  @media(max-width:1000px){.cards{grid-template-columns:1fr}}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px 24px;box-shadow:var(--shadow);position:relative;overflow:hidden}
-  .card.main{border-top:3px solid var(--blue)}
-  .card.reorder{border-top:3px solid var(--violet)}
-  .card .cat{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--muted)}
-  .card h2{margin:4px 0 0;font-size:20px;display:flex;align-items:center;gap:10px}
-  .pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
-  .pill.b{background:var(--blue-soft);color:var(--blue)} .pill.v{background:var(--violet-soft);color:var(--violet)}
-  .agg{position:absolute;top:22px;right:24px;font-size:12px;color:var(--muted)}
-  .card-body{display:grid;grid-template-columns:150px 1fr 1fr;gap:14px;margin-top:20px;align-items:center}
-  @media(max-width:560px){.card-body{grid-template-columns:1fr 1fr}.ring-wrap{grid-column:span 2}}
-  .ring-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center}
-  .ring{position:relative;width:120px;height:120px}
-  .ring svg{transform:rotate(-90deg)}
-  .ring .label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-  .ring .pct{font-size:26px;font-weight:800}
-  .ring .sub{font-size:11px;color:var(--muted)}
-  .stat{background:var(--panel-2);border-radius:12px;padding:13px 15px}
-  .stat .k{font-size:11px;color:var(--muted);font-weight:600}
-  .stat .v{font-size:21px;font-weight:800;margin-top:3px}
-  .stat .v small{font-size:12px;font-weight:600;color:var(--muted)}
-  .tabs{display:flex;gap:10px;margin:26px 0 18px;flex-wrap:wrap}
-  .tab{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:15px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--muted);transition:.15s}
-  .tab.active{background:#141824;color:#fff;border-color:#141824}
-  .tab.active.v{background:var(--violet);color:#fff;border-color:var(--violet)}
+  .pagehead{margin:2px 0 18px}
+  .pagehead h1{font-size:22px;margin:0;font-weight:800;letter-spacing:-.01em}
+  .pagehead .sub{font-size:13px;color:var(--muted);margin-top:4px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 16px;box-shadow:var(--shadow)}
+  .kpi .k{font-size:12px;color:var(--muted);font-weight:600}
+  .kpi .v{font-size:22px;font-weight:800;margin-top:3px;line-height:1.2}
+  .kpi .v small{font-size:12px;font-weight:600;color:var(--muted)}
+  .kpi .v.g{color:var(--green)} .kpi .v.b{color:var(--blue)} .kpi .v.a{color:var(--amber)}
+  .kpi .s{font-size:11px;color:var(--muted);margin-top:3px}
+  .tabs{display:flex;gap:8px;margin:4px 0 14px;flex-wrap:wrap}
+  .tab{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px;color:var(--muted);transition:.15s}
+  .tab:hover{border-color:#c9cdd6}
+  .tab.active{background:#1b2130;color:#fff;border-color:#1b2130}
+  .tab.active.v{background:#1b2130;color:#fff;border-color:#1b2130}
+  .tcnt{font-size:11px;font-weight:800;background:rgba(127,134,152,.15);padding:1px 7px;border-radius:12px}
+  .tab.active .tcnt{background:rgba(255,255,255,.2)}
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:20px 22px}
   .segbar{display:inline-flex;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;margin-bottom:16px}
   .seg{border:none;background:transparent;padding:9px 18px;border-radius:9px;font-size:13px;font-weight:800;color:var(--muted);cursor:pointer;transition:.12s}
@@ -79,7 +54,7 @@
   .reset:hover{background:#ececf3}
   .tablewrap{margin-top:16px;overflow-x:auto;border-radius:14px;border:1px solid var(--line)}
   table{width:100%;border-collapse:collapse;font-size:13px;min-width:1120px}
-  thead th{background:#141824;color:#fff;font-weight:700;padding:12px;text-align:left;white-space:nowrap;font-size:12px}
+  thead th{background:#f7f8fa;color:#5b6272;font-weight:700;padding:12px;text-align:left;white-space:nowrap;font-size:12px;border-bottom:1px solid var(--line)}
   thead th.num{text-align:right}
   tbody td{padding:11px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
   tbody td.num{text-align:right;font-variant-numeric:tabular-nums}
@@ -201,21 +176,17 @@
 </style>
 </head>
 <body>
-  <div class="topbar">
-    <span class="season">26SS SEASON</span>
-    <h1>GENERAL IDEA 생산스케줄</h1>
-    <span class="spacer"></span>
-    <span class="status"><span class="dot"></span>구글시트 전체 임포트 · 메인 739 · 리오더 606</span>
-  </div>
-
   <div class="wrap">
-    <div class="season-strip" id="seasonStrip"></div>
-    <div class="cards" id="cards"></div>
+    <div class="pagehead">
+      <h1>GENERAL IDEA 26SS 생산스케줄</h1>
+      <div class="sub">26SS 생산스케줄 관리 · 구글시트 전체 임포트 기준</div>
+    </div>
+    <div class="kpis" id="kpis"></div>
 
     <div class="tabs">
-      <div class="tab active" data-view="main">🧵 메인 (MAIN)</div>
-      <div class="tab" data-view="reorder">🔁 리오더 (REORDER)</div>
-      <div class="tab" data-view="calendar">🗓️ 캘린더</div>
+      <div class="tab active" data-view="main">메인 (MAIN)<span class="tcnt" id="tcMain"></span></div>
+      <div class="tab" data-view="reorder">리오더 (REORDER)<span class="tcnt" id="tcRe"></span></div>
+      <div class="tab" data-view="calendar">🗓 캘린더</div>
     </div>
 
     <div class="panel" id="tablePanel">
@@ -315,38 +286,20 @@ function agg(list){
 }
 const aMain=agg(MAIN), aRe=agg(REORDER), aActive=agg([...MAIN,...REORDER]);
 
-function ring(pct,color){
-  const r=52,c=2*Math.PI*r,off=c*(1-Math.min(pct,100)/100);
-  return `<div class="ring"><svg width="120" height="120" viewBox="0 0 120 120">
-    <circle cx="60" cy="60" r="${r}" fill="none" stroke="#eceef4" stroke-width="12"/>
-    <circle cx="60" cy="60" r="${r}" fill="none" stroke="${color}" stroke-width="12" stroke-linecap="round"
-      stroke-dasharray="${c}" stroke-dashoffset="${off}"/></svg>
-    <div class="label"><div class="pct">${pct}%</div><div class="sub">입고율</div></div></div>`;
+function kpi(k,v,unit,sub,cls){
+  return `<div class="kpi"><div class="k">${k}</div><div class="v ${cls||''}">${v}<small> ${unit||''}</small></div>${sub?`<div class="s">${sub}</div>`:''}</div>`;
 }
-function cardHTML(a,type){
-  const isMain=type==='main';
-  return `<div class="card ${isMain?'main':'reorder'}"><div class="cat">PROD. CATEGORY</div>
-    <h2>${isMain?'메인 생산 현황 (MAIN)':'리오더 생산 현황 (REORDER)'}
-      <span class="pill ${isMain?'b':'v'}">${isMain?'정규 패키지':'반응 스팟'}</span></h2>
-    <div class="agg">${a.styles}개 스타일 · ${a.rows}개 컬러</div>
-    <div class="card-body">
-      <div class="ring-wrap">${ring(a.rate,isMain?'var(--blue)':'var(--violet)')}</div>
-      <div class="stat"><div class="k">총 지시수량</div><div class="v">${fmt(a.plan)} <small>Pcs</small></div></div>
-      <div class="stat"><div class="k">총 입고수량</div><div class="v" style="color:var(--green)">${fmt(a.recv)} <small>Pcs</small></div></div>
-      <div class="stat" style="grid-column:2"><div class="k">미입고 잔량</div><div class="v" style="color:var(--amber)">${fmt(a.rest)} <small>Pcs</small></div></div>
-      <div class="stat"><div class="k">입고완료 컬러</div><div class="v">${a.done} <small>/ ${a.rows}건</small></div></div>
-    </div></div>`;
-}
-document.getElementById('cards').innerHTML=cardHTML(aMain,'main')+cardHTML(aRe,'reorder');
-document.getElementById('seasonStrip').innerHTML=`
-  <div class="ss-title">📊 26SS 시즌 통합 입고율<small>메인+리오더 · ${aActive.rows}개 컬러 · 입고완료·수량미기입은 100% 간주</small></div>
-  <div class="ss-pct">${aActive.rate}%</div>
-  <div class="ss-bar"><div class="ss-fill" style="width:${aActive.rate}%"></div></div>
-  <div class="ss-metrics">
-    <div class="m"><div class="k">총 지시수량</div><div class="v">${fmt(aActive.plan)}</div></div>
-    <div class="m"><div class="k">총 입고수량</div><div class="v g">${fmt(aActive.recv)}</div></div>
-    <div class="m"><div class="k">미입고 잔량</div><div class="v a">${fmt(aActive.rest)}</div></div>
-  </div>`;
+const allStyles=new Set([...MAIN,...REORDER].map(x=>x.style)).size;
+document.getElementById('kpis').innerHTML=
+  kpi('스타일',allStyles,'개',`컬러 ${fmt(aActive.rows)}개`)+
+  kpi('지시수량',fmt(aActive.plan),'장')+
+  kpi('입고수량',fmt(aActive.recv),'장',null,'g')+
+  kpi('전체 입고율',aActive.rate,'%',`${fmt(aActive.recv)} / ${fmt(aActive.plan)}`,'b')+
+  kpi('메인 입고율',aMain.rate,'%',`${fmt(aMain.recv)} / ${fmt(aMain.plan)}`)+
+  kpi('리오더 입고율',aRe.rate,'%',`${fmt(aRe.recv)} / ${fmt(aRe.plan)}`)+
+  kpi('미입고 잔량',fmt(aActive.rest),'장',null,'a');
+document.getElementById('tcMain').textContent=aMain.styles;
+document.getElementById('tcRe').textContent=aRe.styles;
 
 /* ---------- 그룹핑 (차순 + 스타일) ---------- */
 function groupKey(x){return (x.ord||'')+'|'+x.style;}

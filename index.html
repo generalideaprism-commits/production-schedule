@@ -161,8 +161,18 @@
   .spectrum{margin-bottom:22px}
   .spec-head{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px}
   .spec-head b{color:var(--green);font-size:14px}
-  .spec-bar{height:12px;background:#edeff3;border-radius:20px;overflow:hidden}
-  .spec-fill{height:100%;background:var(--green);border-radius:20px;transition:width .3s}
+  .spec-bar{height:12px;background:#edeff3;border-radius:20px;overflow:hidden;display:flex}
+  .spec-fill{height:100%;background:var(--green);transition:width .3s}
+  .spec-fut{height:100%;background:var(--amber);transition:width .3s}
+  .spec-leg{display:flex;gap:16px;margin-top:7px;font-size:11px;color:#5b6272;font-weight:700;flex-wrap:wrap}
+  .spec-leg i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+  details.dcard,.dcard{border:1px solid var(--line);border-radius:10px;background:#fafbfc}
+  details.dcard summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;cursor:pointer;list-style:none}
+  details.dcard summary::-webkit-details-marker{display:none}
+  details.dcard .dbody{padding:0 14px 12px}
+  .dchev{color:var(--muted);font-size:11px;transition:transform .15s}
+  details[open] .dchev{transform:rotate(180deg)}
+  .rc-badge.cdone{background:var(--grey-soft);color:var(--grey)}
   .passort{width:100%;min-width:0;border-collapse:collapse;font-size:12px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid var(--line);margin-top:2px}
   .passort th,.passort td{padding:8px 10px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
   .passort th{background:#f0f2f6;font-weight:700;font-size:11px;color:#4a5060}
@@ -422,26 +432,33 @@ function receiptDetail(g){
   const otherDone=Math.max(0,g.recv-partialTotal);
   const colHead=`<tr><th style="text-align:left">컬러</th>${ds.map(s=>`<th>${s}</th>`).join('')}<th>합계</th></tr>`;
 
-  /* 1) 진행 스펙트럼 */
+  /* 1) 진행 스펙트럼: 입고(초록) + 입고예정(주황) + 미입고(회색) */
+  const futTotal=Object.values(futMap).reduce((s,e)=>s+e.total,0);
+  const pRecv=g.total?Math.min(100,g.recv/g.total*100):0;
+  const pFut=g.total?Math.min(Math.max(0,100-pRecv),futTotal/g.total*100):0;
+  const remOpen=Math.max(0,g.total-g.recv-futTotal);
   const spectrum=`<div class="spectrum">
     <div class="spec-head"><span>전체 생산 진행 스펙트럼</span><span><b>${g.rate}%</b> 입고 완료 (${fmt(g.recv)} / ${fmt(g.total)} Pcs)</span></div>
-    <div class="spec-bar"><div class="spec-fill" style="width:${Math.min(g.rate,100)}%"></div></div></div>`;
+    <div class="spec-bar"><div class="spec-fill" style="width:${pRecv}%"></div><div class="spec-fut" style="width:${pFut}%"></div></div>
+    <div class="spec-leg"><span><i style="background:var(--green)"></i>입고 ${fmt(g.recv)}</span>${futTotal>0?`<span><i style="background:var(--amber)"></i>입고예정 ${fmt(futTotal)}</span>`:''}<span><i style="background:#d9dce3"></i>미입고 ${fmt(remOpen)}</span></div></div>`;
 
   /* 2) 기획 아소트 (컬러×사이즈×합계) */
   const planBody=g.colors.map(c=>`<tr><td class="cname">${colorSw(c.color)}</td>${sizeRow(c.sizes,ds)}<td class="sum">${fmt(c.total)}</td></tr>`).join('');
-  const planTable=`<div class="det-h">📐 기획 아소트 세부 분배 현황</div><div class="passort-wrap"><table class="passort"><thead>${colHead}</thead><tbody>${planBody}</tbody></table></div>`;
+  const planTable=`<div class="det-h" style="margin-top:20px">📐 기획 아소트 세부 분배 현황</div><div class="passort-wrap"><table class="passort"><thead>${colHead}</thead><tbody>${planBody}</tbody></table></div>`;
 
-  /* 3) 차수별 파샬 입고 (컬러 포함) */
-  const cards=chasu.map((e,i)=>{
+  /* 3) 입고 완료 내역: 접이식 한 줄 카드 (클릭 시 컬러별 상세) */
+  const doneCards=chasu.map((e,i)=>{
     const rows=Object.values(e.byColor).map(bc=>`<tr><td class="cname">${colorSw(bc.color)}</td>${sizeRow(bc.sizes,ds)}<td class="sum">${fmt(bc.total)}</td></tr>`).join('');
-    const tbl=`<div class="passort-wrap"><table class="passort"><thead>${colHead}</thead><tbody>${rows}</tbody></table></div>`;
-    return `<div class="rcard">
-      <div class="rcard-top"><span class="rc-badge c${i%4}">${e.n}차 입고</span><span class="rc-date">${e.date||'미정'} 입고</span>
-      <span class="rc-spacer"></span><span class="rc-ratio">배정비율 ${g.total?Math.round(e.total/g.total*100):0}%</span>
-      <span class="rc-total">${fmt(e.total)} Pcs</span><span class="tag tag-done">완료</span></div>${tbl}</div>`;
+    const tbl=`<div class="dbody"><div class="passort-wrap"><table class="passort"><thead>${colHead}</thead><tbody>${rows}</tbody></table></div></div>`;
+    return `<details class="dcard"><summary><span class="rc-badge cdone">${e.n}차 입고</span><span class="rc-date">${e.date||'미정'} 입고</span>
+      <span class="rc-spacer"></span><span class="rc-ratio">배정 ${g.total?Math.round(e.total/g.total*100):0}%</span>
+      <span class="rc-total">${fmt(e.total)} Pcs</span><span class="tag tag-done">완료</span><span class="dchev">▾</span></summary>${tbl}</details>`;
   }).join('');
-  const otherCard=otherDone>0?`<div class="rcard"><div class="rcard-top"><span class="rc-badge c0">입고완료</span><span class="rc-date">세부 차수 미기입</span><span class="rc-spacer"></span><span class="rc-total">${fmt(otherDone)} Pcs</span><span class="tag tag-done">완료</span></div></div>`:'';
-  /* 미래(오늘 포함) 예정분 카드 */
+  const otherCard=otherDone>0?`<div class="dcard" style="padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="rc-badge cdone">입고완료</span><span class="rc-date">세부 차수 미기입</span><span class="rc-spacer"></span><span class="rc-total">${fmt(otherDone)} Pcs</span><span class="tag tag-done">완료</span></div>`:'';
+  const emptyDone=(doneCards||otherCard)?'':'<div class="dcard" style="padding:10px 14px;color:var(--muted);font-size:12px">입고 완료된 파샬 내역이 없습니다.</div>';
+  const doneSection=`<div class="det-h" style="margin-top:20px">📦 입고 완료 내역 (차수별 · 클릭 시 상세)</div><div class="rcards">${doneCards}${otherCard}${emptyDone}</div>`;
+
+  /* 미래(오늘 포함) 예정분 카드 — 강조 표시 */
   const futs=Object.values(futMap).sort((a,b)=>a.date<b.date?-1:1);
   const futCards=futs.map(e=>{
     const rows=Object.values(e.byColor).map(bc=>`<tr><td class="cname">${colorSw(bc.color)}</td>${sizeRow(bc.sizes,ds)}<td class="sum">${fmt(bc.total)}</td></tr>`).join('');
@@ -449,10 +466,8 @@ function receiptDetail(g){
     const lbl=e.date===TODAY?`🚚 금일 입고예정 (${e.date})`:`${e.date} 입고예정`;
     return `<div class="rcard fut"><div class="rcard-top"><span class="rc-badge c1">입고예정</span><span class="rc-date" style="font-weight:800;color:var(--amber)">${lbl}</span>
       <span class="rc-spacer"></span><span class="rc-ratio">배정비율 ${g.total?Math.round(e.total/g.total*100):0}%</span>
-      <span class="rc-total">${fmt(e.total)} Pcs</span><span class="tag tag-prog">예정</span></div>${tbl}</div>`;
+      <span class="rc-total" style="color:var(--amber)">${fmt(e.total)} Pcs</span><span class="tag tag-prog">예정</span></div>${tbl}</div>`;
   }).join('');
-  const emptyCard=(cards||futCards||otherCard)?'':'<div class="rcard"><div class="rcard-top"><span class="rc-date">기록된 파샬 입고 내역이 없습니다.</span></div></div>';
-  const chasuSection=`<div class="det-h" style="margin-top:20px">📦 생산 차수별 파샬 입고 및 입고 아소트 현황</div><div class="rcards">${cards}${otherCard}${futCards}${emptyCard}</div>`;
 
   /* 4) 미입고 잔량 (컬러·사이즈별)
      잔량 = 기획수량 - 실입고 - 입고예정(선입력분). 과입고는 0으로 표기. */
@@ -479,16 +494,17 @@ function receiptDetail(g){
   if(remGrand>0&&remRate>=5){
     const remBody=remByColor.map(rc=>`<tr><td class="cname">${colorSw(rc.color)}</td>${sizeRow(rc.sizes,ds)}<td class="sum" style="color:var(--red)">${fmt(rc.total)}</td><td class="rem-eta">${rc.status||'-'}</td></tr>`).join('');
     const remSum=`<tr class="rem-sum"><td class="cname">합계</td>${sizeRow(remColTot,ds)}<td class="sum" style="color:var(--red)">${fmt(remGrand)}</td><td></td></tr>`;
-    remSection=`<div class="det-h" style="margin-top:20px">⚠️ 미입고 잔량 아소트 분석 및 입고예정일</div>
-      <div class="rcard rem"><div class="rcard-top"><span class="rc-badge">미입고 잔량</span><span class="rc-spacer"></span>
+    remSection=`<div class="rcard rem"><div class="rcard-top"><span class="rc-badge">미입고 잔량</span>
+      <span class="rc-date">입고예정건 포함 후 남은 잔량</span><span class="rc-spacer"></span>
       <span class="rc-ratio">미입고율 ${g.total?Math.round(remGrand/g.total*100):0}%</span>
       <span class="rc-total" style="color:var(--red)">${fmt(remGrand)} Pcs</span></div>
       <div class="passort-wrap"><table class="passort"><thead>${colHead.replace('합계</th>','미입고 총잔량</th><th>입고예정</th>')}</thead><tbody>${remBody}${remSum}</tbody></table></div>
       <div style="font-size:11px;color:var(--muted);margin-top:8px">❗ 미입고 잔량은 공장 및 물류 입고 일정 변동에 따라 차기 파샬 입고 차수로 자동 할당됩니다.</div></div>`;
   } else {
-    const minorNote=remGrand>0?`<span class="rc-date">잔여 ${fmt(remGrand)} Pcs · 미입고율 ${remRate.toFixed(1)}% (5% 미만 → 완료 간주)</span>`:'';
-    remSection=`<div class="det-h" style="margin-top:20px">✅ 미입고 잔량</div><div class="rcard"><div class="rcard-top"><span class="rc-badge c0">전량 입고 완료</span>${minorNote}<span class="rc-spacer"></span><span class="rc-total" style="color:var(--green)">잔량 ${remGrand>0?fmt(remGrand):'0'}</span></div></div>`;
+    const minorNote=remGrand>0?`<span class="rc-date">잔여 ${fmt(remGrand)} Pcs · 미입고율 ${remRate.toFixed(1)}% (5% 미만 → 완료 간주) · 입고예정건 포함 후 남은 잔량</span>`:'';
+    remSection=`<div class="rcard"><div class="rcard-top"><span class="rc-badge c0">전량 입고 완료</span>${minorNote}<span class="rc-spacer"></span><span class="rc-total" style="color:var(--green)">잔량 ${remGrand>0?fmt(remGrand):'0'}</span></div></div>`;
   }
+  const pendingSection=`<div class="det-h">⏳ 입고예정 · 미입고 현황</div><div class="rcards">${futCards}${remSection}</div>`;
 
   const meta=`<div class="metastrip" style="margin-top:20px">
      <div class="mi"><span>생산처</span><b>${g.vendor||'-'}</b></div>
@@ -498,7 +514,7 @@ function receiptDetail(g){
      <div class="mi"><span>투입일</span><b>${g.inDate||'-'}</b></div>
      <div class="mi"><span>최초입고</span><b>${g.inputMin||'-'}</b></div></div>`;
 
-  return spectrum+planTable+chasuSection+remSection+meta;
+  return spectrum+pendingSection+planTable+doneSection+meta;
 }
 function infoDetail(g){
   const dateRange=g.inputMin?(g.inputMin===g.inputMax?g.inputMin:`${g.inputMin} ~ ${g.inputMax}`):'-';

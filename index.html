@@ -132,6 +132,7 @@
   .rcards{display:flex;flex-direction:column;gap:10px;margin:4px 0}
   .rcard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fbfcfe}
   .rcard.rem{background:#fdf1f1;border-color:#f5cfcf}
+  .rcard.fut{background:#fffaf0;border-color:#eedfbe}
   .rcard-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
   .rc-badge{font-size:12px;font-weight:800;padding:4px 11px;border-radius:8px;background:var(--blue-soft);color:var(--blue)}
   .rcard.rem .rc-badge{background:#fadada;color:var(--red)}
@@ -271,6 +272,23 @@ window.REORDER_DATA=[{"ord":"리오더1차","gender":"여성","otype":"리오더
 </script>
 <script>
 const MAIN=(window.MAIN_DATA||[]), REORDER=(window.REORDER_DATA||[]);
+/* 패킹리스트 선입력 처리: 오늘 이후(오늘 포함) 날짜의 파샬 수량은 아직 미입고 →
+   입고수량에서 제외하고 '입고예정'으로 별도 표시 */
+const _now=new Date();
+const TODAY=_now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0')+'-'+String(_now.getDate()).padStart(2,'0');
+function applyFutureIntake(list){
+  list.forEach(x=>{
+    if(!x.partials||!x.partials.length)return;
+    let fut=0;
+    x.partials.forEach(p=>{ p.future=!!(p.date&&p.date>=TODAY); if(p.future)fut+=p.total||0; });
+    if(fut>0){
+      x.recv=Math.max(0,(x.recv||0)-fut);
+      x.remain=(x.recv||0)-(x.total||0);
+      if(x.recv<(x.total||0))x.status=(x.status&&!/입고완료/.test(x.status))?x.status:'입고예정 포함';
+    }
+  });
+}
+applyFutureIntake(MAIN);applyFutureIntake(REORDER);
 const COLORMAP={
   "BLACK":"#1c1c1c","WHITE":"#f4f4f6","GREY":"#9aa0a8","LIGHT GREY":"#c9ced6","BROWN":"#6f4a32",
   "IVORY":"#efe9dc","NAVY":"#1f2a52","PINK":"#e6a4bd","BEIGE":"#d8c6a8","DARK BEIGE":"#c2ad86",
@@ -408,9 +426,17 @@ function sizeRow(sizesObj,ds){return ds.map(s=>{const v=(sizesObj&&sizesObj[s])|
 function receiptDetail(g){
   const order={};
   g.colors.forEach(c=>{if(c.sizes)for(const s in c.sizes)order[s]=(order[s]||0)+(c.sizes[s]||0);});
-  /* 차수별 · 컬러별 집계 */
-  const chMap={};
+  /* 차수별 · 컬러별 집계 (미래 예정분은 futMap으로 분리) */
+  const chMap={},futMap={};
   g.colors.forEach(c=>(c.partials||[]).forEach(p=>{
+    if(p.future){
+      const e=futMap[p.date]=futMap[p.date]||{date:p.date,total:0,byColor:{}};
+      e.total+=p.total||0;
+      const bc=e.byColor[c.color]=e.byColor[c.color]||{color:c.color,total:0,sizes:{}};
+      bc.total+=p.total||0;
+      if(p.sizes)for(const s in p.sizes)bc.sizes[s]=(bc.sizes[s]||0)+(p.sizes[s]||0);
+      return;
+    }
     const e=chMap[p.n]=chMap[p.n]||{n:p.n,total:0,dates:[],byColor:{}};
     e.total+=p.total||0; if(p.date)e.dates.push(p.date);
     const bc=e.byColor[c.color]=e.byColor[c.color]||{color:c.color,total:0,sizes:{}};
@@ -423,7 +449,7 @@ function receiptDetail(g){
   /* 입고 · 잔량 사이즈 */
   const recvSizes={};
   g.colors.forEach(c=>{
-    if(c.partials&&c.partials.length){c.partials.forEach(p=>{if(p.sizes)for(const s in p.sizes)recvSizes[s]=(recvSizes[s]||0)+(p.sizes[s]||0);});}
+    if(c.partials&&c.partials.length){c.partials.forEach(p=>{if(p.future)return;if(p.sizes)for(const s in p.sizes)recvSizes[s]=(recvSizes[s]||0)+(p.sizes[s]||0);});}
     else if(isDone(c)&&c.sizes){for(const s in c.sizes)recvSizes[s]=(recvSizes[s]||0)+(c.sizes[s]||0);}
   });
   const remTotal=Math.max(0,g.total-g.recv);
@@ -451,12 +477,23 @@ function receiptDetail(g){
       <span class="rc-total">${fmt(e.total)} Pcs</span><span class="tag tag-done">완료</span></div>${tbl}</div>`;
   }).join('');
   const otherCard=otherDone>0?`<div class="rcard"><div class="rcard-top"><span class="rc-badge c0">입고완료</span><span class="rc-date">세부 차수 미기입</span><span class="rc-spacer"></span><span class="rc-total">${fmt(otherDone)} Pcs</span><span class="tag tag-done">완료</span></div></div>`:'';
-  const chasuSection=`<div class="det-h" style="margin-top:20px">📦 생산 차수별 파샬 입고 및 입고 아소트 현황</div><div class="rcards">${cards||'<div class="rcard"><div class="rcard-top"><span class="rc-date">기록된 파샬 입고 내역이 없습니다.</span></div></div>'}${otherCard}</div>`;
+  /* 미래(오늘 포함) 예정분 카드 */
+  const futs=Object.values(futMap).sort((a,b)=>a.date<b.date?-1:1);
+  const futCards=futs.map(e=>{
+    const rows=Object.values(e.byColor).map(bc=>`<tr><td class="cname">${colorSw(bc.color)}</td>${sizeRow(bc.sizes,ds)}<td class="sum">${fmt(bc.total)}</td></tr>`).join('');
+    const tbl=`<div class="passort-wrap"><table class="passort"><thead>${colHead}</thead><tbody>${rows}</tbody></table></div>`;
+    const lbl=e.date===TODAY?'🚚 금일 입고예정':`${e.date} 입고예정`;
+    return `<div class="rcard fut"><div class="rcard-top"><span class="rc-badge c1">입고예정</span><span class="rc-date" style="font-weight:800;color:var(--amber)">${lbl}</span>
+      <span class="rc-spacer"></span><span class="rc-ratio">배정비율 ${g.total?Math.round(e.total/g.total*100):0}%</span>
+      <span class="rc-total">${fmt(e.total)} Pcs</span><span class="tag tag-prog">예정</span></div>${tbl}</div>`;
+  }).join('');
+  const emptyCard=(cards||futCards||otherCard)?'':'<div class="rcard"><div class="rcard-top"><span class="rc-date">기록된 파샬 입고 내역이 없습니다.</span></div></div>';
+  const chasuSection=`<div class="det-h" style="margin-top:20px">📦 생산 차수별 파샬 입고 및 입고 아소트 현황</div><div class="rcards">${cards}${otherCard}${futCards}${emptyCard}</div>`;
 
   /* 4) 미입고 잔량 (컬러·사이즈별) */
   const remByColor=g.colors.map(c=>{
     const rc={};
-    if(c.partials&&c.partials.length){c.partials.forEach(p=>{if(p.sizes)for(const s in p.sizes)rc[s]=(rc[s]||0)+(p.sizes[s]||0);});}
+    if(c.partials&&c.partials.length){c.partials.forEach(p=>{if(p.future)return;if(p.sizes)for(const s in p.sizes)rc[s]=(rc[s]||0)+(p.sizes[s]||0);});}
     else if(isDone(c)&&c.sizes){for(const s in c.sizes)rc[s]=(rc[s]||0)+(c.sizes[s]||0);}
     const rem={}; let tot=0;
     ds.forEach(s=>{const r=Math.max(0,((c.sizes&&c.sizes[s])||0)-(rc[s]||0)); if(r){rem[s]=r; tot+=r;}});

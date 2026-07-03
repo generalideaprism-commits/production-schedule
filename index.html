@@ -18,13 +18,16 @@
   .pagehead{margin:2px 0 18px}
   .pagehead h1{font-size:22px;margin:0;font-weight:800;letter-spacing:-.01em}
   .pagehead .sub{font-size:13px;color:var(--muted);margin-top:4px}
-  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
-  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 16px;box-shadow:var(--shadow)}
-  .kpi .k{font-size:12px;color:var(--muted);font-weight:600}
-  .kpi .v{font-size:22px;font-weight:800;margin-top:3px;line-height:1.2}
-  .kpi .v small{font-size:12px;font-weight:600;color:var(--muted)}
-  .kpi .v.g{color:var(--green)} .kpi .v.b{color:var(--blue)} .kpi .v.a{color:var(--amber)}
-  .kpi .s{font-size:11px;color:var(--muted);margin-top:3px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px;margin-bottom:18px}
+  .scard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow)}
+  .sring{position:relative;width:60px;height:60px;flex:0 0 60px}
+  .sring .pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
+  .sinfo{min-width:0}
+  .st{font-size:13px;font-weight:800}
+  .sbadge{font-size:10px;font-weight:800;letter-spacing:.06em}
+  .sm{display:flex;gap:12px;font-size:12px;color:var(--muted);margin-top:4px;flex-wrap:wrap;white-space:nowrap}
+  .sm b{color:var(--ink);font-weight:800} .sm b.g{color:var(--green)} .sm b.a{color:var(--amber)}
+  .ss2{font-size:11px;color:var(--muted);margin-top:2px}
   .tabs{display:flex;gap:8px;margin:4px 0 14px;flex-wrap:wrap}
   .tab{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px;color:var(--muted);transition:.15s}
   .tab:hover{border-color:#c9cdd6}
@@ -286,18 +289,26 @@ function agg(list){
 }
 const aMain=agg(MAIN), aRe=agg(REORDER), aActive=agg([...MAIN,...REORDER]);
 
-function kpi(k,v,unit,sub,cls){
-  return `<div class="kpi"><div class="k">${k}</div><div class="v ${cls||''}">${v}<small> ${unit||''}</small></div>${sub?`<div class="s">${sub}</div>`:''}</div>`;
+function ringS(pct,color){
+  const r=24,c=2*Math.PI*r,off=c*(1-Math.min(pct,100)/100);
+  return `<div class="sring"><svg width="60" height="60" viewBox="0 0 60 60">
+    <circle cx="30" cy="30" r="${r}" fill="none" stroke="#eceef4" stroke-width="6"/>
+    <circle cx="30" cy="30" r="${r}" fill="none" stroke="${color}" stroke-width="6" stroke-linecap="round"
+      stroke-dasharray="${c}" stroke-dashoffset="${off}" transform="rotate(-90 30 30)"/></svg>
+    <div class="pct">${pct}%</div></div>`;
 }
-const allStyles=new Set([...MAIN,...REORDER].map(x=>x.style)).size;
+function scard(title,badge,a,color){
+  return `<div class="scard">${ringS(a.rate,color)}
+    <div class="sinfo">
+      <div class="st">${title} <span class="sbadge" style="color:${color}">${badge}</span></div>
+      <div class="sm"><span>지시 <b>${fmt(a.plan)}</b></span><span>입고 <b class="g">${fmt(a.recv)}</b></span><span>잔량 <b class="a">${fmt(a.rest)}</b></span></div>
+      <div class="ss2">${a.styles}개 스타일 · ${fmt(a.rows)}개 컬러</div>
+    </div></div>`;
+}
 document.getElementById('kpis').innerHTML=
-  kpi('스타일',allStyles,'개',`컬러 ${fmt(aActive.rows)}개`)+
-  kpi('지시수량',fmt(aActive.plan),'장')+
-  kpi('입고수량',fmt(aActive.recv),'장',null,'g')+
-  kpi('전체 입고율',aActive.rate,'%',`${fmt(aActive.recv)} / ${fmt(aActive.plan)}`,'b')+
-  kpi('메인 입고율',aMain.rate,'%',`${fmt(aMain.recv)} / ${fmt(aMain.plan)}`)+
-  kpi('리오더 입고율',aRe.rate,'%',`${fmt(aRe.recv)} / ${fmt(aRe.plan)}`)+
-  kpi('미입고 잔량',fmt(aActive.rest),'장',null,'a');
+  scard('시즌 통합 입고율','26SS',aActive,'#1b2130')+
+  scard('메인 생산 현황','MAIN',aMain,'var(--blue)')+
+  scard('리오더 생산 현황','REORDER',aRe,'var(--violet)');
 document.getElementById('tcMain').textContent=aMain.styles;
 document.getElementById('tcRe').textContent=aRe.styles;
 

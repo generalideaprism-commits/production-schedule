@@ -516,8 +516,7 @@ function receiptDetail(g){
     const remBody=remByColor.map(rc=>`<tr><td class="cname">${colorSw(rc.color)}</td>${sizeRow(rc.sizes,ds)}<td class="sum" style="color:var(--red)">${fmt(rc.total)}</td><td class="rem-eta">${rc.status||'-'}</td></tr>`).join('');
     const remSum=`<tr class="rem-sum"><td class="cname">합계</td>${sizeRow(remColTot,ds)}<td class="sum" style="color:var(--red)">${fmt(remGrand)}</td><td></td></tr>`;
     remSection=`<div class="det-h" style="margin-top:20px">⚠️ 미입고 잔량 아소트 분석 및 입고예정일</div>
-      <div class="rcard rem"><div class="rcard-top"><span class="rc-badge">미입고 잔량</span>
-      <span class="rc-date">예정일 ${g.dueDate||'미정'}</span><span class="rc-spacer"></span>
+      <div class="rcard rem"><div class="rcard-top"><span class="rc-badge">미입고 잔량</span><span class="rc-spacer"></span>
       <span class="rc-ratio">미입고율 ${g.total?Math.round(remGrand/g.total*100):0}%</span>
       <span class="rc-total" style="color:var(--red)">${fmt(remGrand)} Pcs</span></div>
       <div class="passort-wrap"><table class="passort"><thead>${colHead.replace('합계</th>','미입고 총잔량</th><th>입고예정</th>')}</thead><tbody>${remBody}${remSum}</tbody></table></div>

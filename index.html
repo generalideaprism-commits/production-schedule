@@ -153,6 +153,7 @@
   .cal-ev span,.cal-ev b{overflow:hidden;text-overflow:ellipsis}
   .cal-ev.done{background:var(--green-soft);color:var(--green)}
   .cal-ev.fut{background:var(--amber-soft);color:var(--amber);box-shadow:inset 0 0 0 1px #ecd9b3}
+  .cal-ev.remfut{background:#fffdf7;color:var(--amber);border:1px dashed #d9a94e;padding:1px 5px}
   .cal-ev:hover{filter:brightness(.93)}
   .cal-legend{display:flex;gap:16px;margin-top:10px;font-size:12px;font-weight:600;color:#5b6272;align-items:center}
   .cal-legend i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
@@ -616,6 +617,18 @@ function calEvents(){
       const e=ev[key]=ev[key]||{date:d,style:x.style,prod:x.prod,ord:x.ord,grp:x.grp,vendor:x.vendor||'-',qty:0,future:false};
       e.qty+=p.total||0; if(p.future)e.future=true;
     });
+    /* 미입고 잔량 + 상태메모의 날짜(예: "7/24 입고예정") → 잔량 입고예정 이벤트 */
+    const futSum=(x.partials||[]).reduce((s,p)=>s+(p.future?(p.total||0):0),0);
+    const remQ=Math.max(0,(x.total||0)-(x.recv||0)-futSum);
+    if(remQ>0){
+      const md=(x.status||'').match(/(\d{1,2})\s*\/\s*(\d{1,2})/);
+      if(md){
+        const d=TODAY.slice(0,4)+'-'+String(+md[1]).padStart(2,'0')+'-'+String(+md[2]).padStart(2,'0');
+        const key=d+'|'+x.grp+'|'+(x.ord||'')+'|'+x.style+'|rem';
+        const e=ev[key]=ev[key]||{date:d,style:x.style,prod:x.prod,ord:x.ord,grp:x.grp,vendor:x.vendor||'-',qty:0,future:true,rem:true,note:x.status};
+        e.qty+=remQ;
+      }
+    }
   });
   const byDate={};
   Object.values(ev).forEach(e=>{(byDate[e.date]=byDate[e.date]||[]).push(e);});
@@ -643,11 +656,11 @@ function renderCal(){
     const byV={}; evs.forEach(e=>{(byV[e.vendor]=byV[e.vendor]||[]).push(e);});
     const chips=Object.keys(byV).sort((a,b)=>a.localeCompare(b,'ko')).map(v=>
       `<div class="cal-vgrp"><div class="cal-vh">${v}</div>`+
-      byV[v].map(e=>`<div class="cal-ev ${e.future?'fut':'done'}" data-grp="${e.grp}" data-key="${(e.ord||'')+'|'+e.style}" title="${v} · ${e.prod} · ${e.future?'입고예정':'입고완료'} ${fmt(e.qty)} Pcs">${e.style}<b>${fmt(e.qty)}</b></div>`).join('')+
+      byV[v].map(e=>`<div class="cal-ev ${e.rem?'remfut':e.future?'fut':'done'}" data-grp="${e.grp}" data-key="${(e.ord||'')+'|'+e.style}" title="${v} · ${e.prod} · ${e.rem?'미입고 잔량 입고예정 ('+(e.note||'')+')':e.future?'입고예정':'입고완료'} ${fmt(e.qty)} Pcs">${e.style}<b>${fmt(e.qty)}</b></div>`).join('')+
       `</div>`).join('');
     return `<div class="cal-cell ${ds===TODAY?'today':''}"><div class="cal-d ${dow===0?'sun':dow===6?'sat':''}">${d}</div>${chips}</div>`;
   }).join('')+`</div>`;
-  html+=`<div class="cal-legend"><span><i style="background:var(--amber)"></i>입고예정</span><span><i style="background:var(--green)"></i>입고완료</span><span style="color:var(--muted)">· 항목 클릭 시 상세 팝업</span></div>`;
+  html+=`<div class="cal-legend"><span><i style="background:var(--amber)"></i>입고예정(선입력)</span><span><i style="background:#fff;border:1px dashed var(--amber)"></i>잔량 입고예정(메모 기준)</span><span><i style="background:var(--green)"></i>입고완료</span><span style="color:var(--muted)">· 항목 클릭 시 상세 팝업</span></div>`;
   document.getElementById('cal').innerHTML=html;
   document.getElementById('calPrev').onclick=()=>{calMonth=shiftMonth(calMonth,-1);renderCal();};
   document.getElementById('calNext').onclick=()=>{calMonth=shiftMonth(calMonth,1);renderCal();};

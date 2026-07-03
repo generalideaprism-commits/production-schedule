@@ -147,6 +147,8 @@
   .cal-cell.today{background:#fffbe8;box-shadow:inset 0 0 0 2px #f0dfae}
   .cal-d{font-size:12px;font-weight:700;margin-bottom:2px}
   .cal-d.sun{color:var(--red)} .cal-d.sat{color:var(--blue)}
+  .cal-vgrp{display:flex;flex-direction:column;gap:2px;margin-top:3px}
+  .cal-vh{font-size:10px;font-weight:800;color:#7a8093;padding-left:1px}
   .cal-ev{font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 6px;cursor:pointer;display:flex;justify-content:space-between;gap:4px;white-space:nowrap;overflow:hidden}
   .cal-ev span,.cal-ev b{overflow:hidden;text-overflow:ellipsis}
   .cal-ev.done{background:var(--green-soft);color:var(--green)}
@@ -611,7 +613,7 @@ function calEvents(){
     (x.partials||[]).forEach(p=>{
       const dm=(p.date||'').match(/\d{4}-\d{2}-\d{2}/); if(!dm)return;
       const d=dm[0], key=d+'|'+x.grp+'|'+(x.ord||'')+'|'+x.style;
-      const e=ev[key]=ev[key]||{date:d,style:x.style,prod:x.prod,ord:x.ord,grp:x.grp,qty:0,future:false};
+      const e=ev[key]=ev[key]||{date:d,style:x.style,prod:x.prod,ord:x.ord,grp:x.grp,vendor:x.vendor||'-',qty:0,future:false};
       e.qty+=p.total||0; if(p.future)e.future=true;
     });
   });
@@ -638,7 +640,11 @@ function renderCal(){
     if(d===null)return `<div class="cal-cell empty"></div>`;
     const ds=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const evs=byDate[ds]||[], dow=idx%7;
-    const chips=evs.map(e=>`<div class="cal-ev ${e.future?'fut':'done'}" data-grp="${e.grp}" data-key="${(e.ord||'')+'|'+e.style}" title="${e.prod} · ${e.future?'입고예정':'입고완료'} ${fmt(e.qty)} Pcs">${e.style}<b>${fmt(e.qty)}</b></div>`).join('');
+    const byV={}; evs.forEach(e=>{(byV[e.vendor]=byV[e.vendor]||[]).push(e);});
+    const chips=Object.keys(byV).sort((a,b)=>a.localeCompare(b,'ko')).map(v=>
+      `<div class="cal-vgrp"><div class="cal-vh">${v}</div>`+
+      byV[v].map(e=>`<div class="cal-ev ${e.future?'fut':'done'}" data-grp="${e.grp}" data-key="${(e.ord||'')+'|'+e.style}" title="${v} · ${e.prod} · ${e.future?'입고예정':'입고완료'} ${fmt(e.qty)} Pcs">${e.style}<b>${fmt(e.qty)}</b></div>`).join('')+
+      `</div>`).join('');
     return `<div class="cal-cell ${ds===TODAY?'today':''}"><div class="cal-d ${dow===0?'sun':dow===6?'sat':''}">${d}</div>${chips}</div>`;
   }).join('')+`</div>`;
   html+=`<div class="cal-legend"><span><i style="background:var(--amber)"></i>입고예정</span><span><i style="background:var(--green)"></i>입고완료</span><span style="color:var(--muted)">· 항목 클릭 시 상세 팝업</span></div>`;

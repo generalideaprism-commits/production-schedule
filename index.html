@@ -216,6 +216,24 @@
   .wk-tbl tr:last-child td{border-bottom:none}
   .wk-row{cursor:pointer} .wk-row:hover{background:var(--blue-soft)}
   .wk-prod{max-width:380px;overflow:hidden;text-overflow:ellipsis}
+  /* ---- 출항지 기상 리스크 ---- */
+  .pr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:10px}
+  .pr-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 13px}
+  .pr-top{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+  .pr-name{font-weight:800;font-size:13px}
+  .pr-eng{font-size:9px;color:#9ca3af;letter-spacing:.06em}
+  .pr-pill{margin-left:auto;font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:12px}
+  .pr-worst{font-size:11px;color:var(--muted);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pr-strip{display:flex;gap:3px}
+  .pr-strip i{flex:1;height:8px;border-radius:3px}
+  .pr-banner{font-size:12px;font-weight:600;border-radius:9px;padding:10px 14px;margin-bottom:4px}
+  .pr-banner.lvl0{background:var(--green-soft);color:#166534}
+  .pr-banner.lvl1{background:var(--amber-soft);color:#92400e}
+  .pr-banner.lvl2{background:var(--red-soft);color:#991b1b}
+  .pr-banner b{font-weight:800}
+  .pr-note{font-size:12px;color:var(--muted);padding:8px 0}
+  .pr-notes{font-size:11px;color:var(--muted);margin-top:12px;line-height:1.8}
+  .pr-notes a{color:var(--blue);font-weight:700}
   .loadmore{margin-top:14px;text-align:center}
   .loadmore button{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 22px;font-weight:700;cursor:pointer;font-size:13px}
   .hidden{display:none}
@@ -339,7 +357,7 @@
       <div class="loadmore hidden" id="loadmore"><button id="moreBtn">더 보기</button></div>
     </div>
 
-    <div class="panel hidden" id="calPanel"><div id="cal"></div></div>
+    <div class="panel hidden" id="calPanel"><div id="cal"></div><div id="portRisk"></div></div>
     <div class="panel hidden" id="weekPanel"><div id="week"></div></div>
   </div>
   </main>
@@ -765,6 +783,7 @@ function renderCal(){
     const g=buildGroups(el.dataset.grp==='re'?REORDER:MAIN).find(x=>x.key===el.dataset.key);
     if(g)openModal(g);
   }));
+  renderPortRisk();
 }
 
 /* ---------- 주간 입고 리스트 ---------- */
@@ -810,6 +829,64 @@ function renderWeek(){
     const g=buildGroups(el.dataset.grp==='re'?REORDER:MAIN).find(x=>x.key===el.dataset.key);
     if(g)openModal(g);
   }));
+}
+
+/* ---------- 중국 출항지 기상 리스크 (캘린더 하단) ---------- */
+const PORTS=[
+  {n:'상하이',e:'SHANGHAI',lat:31.23,lon:121.47},
+  {n:'닝보',e:'NINGBO',lat:29.87,lon:121.54},
+  {n:'칭다오',e:'QINGDAO',lat:36.07,lon:120.38},
+  {n:'웨이하이',e:'WEIHAI',lat:37.51,lon:122.12},
+  {n:'다롄',e:'DALIAN',lat:38.91,lon:121.61},
+  {n:'샤먼',e:'XIAMEN',lat:24.48,lon:118.09},
+  {n:'선전 옌톈',e:'YANTIAN',lat:22.58,lon:114.28},
+  {n:'광저우 난사',e:'NANSHA',lat:22.75,lon:113.60}
+];
+function portRiskLvl(gust,rain){ if(gust>=90||rain>=100)return 2; if(gust>=60||rain>=50)return 1; return 0; }
+const PR_META=[
+  {t:'양호',c:'var(--green)',bg:'var(--green-soft)',sw:'#cdebd6'},
+  {t:'주의',c:'#b45309',bg:'var(--amber-soft)',sw:'#fde68a'},
+  {t:'위험',c:'var(--red)',bg:'var(--red-soft)',sw:'#fca5a5'}
+];
+let prData=null,prAt=0;
+async function loadPortRisk(){
+  if(prData&&Date.now()-prAt<30*60*1000)return prData;
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${PORTS.map(p=>p.lat).join(',')}&longitude=${PORTS.map(p=>p.lon).join(',')}&daily=weather_code,wind_gusts_10m_max,precipitation_sum&forecast_days=7&timezone=Asia%2FShanghai`;
+  const res=await fetch(url); if(!res.ok)throw new Error('wx '+res.status);
+  const j=await res.json();
+  prData=Array.isArray(j)?j:[j]; prAt=Date.now(); return prData;
+}
+async function renderPortRisk(){
+  const box=document.getElementById('portRisk'); if(!box)return;
+  if(!box.innerHTML)box.innerHTML='<div class="det-h" style="margin-top:26px">🌊 중국 주요 출항지 기상 리스크 (향후 7일 · 실시간)</div><div class="pr-note">기상 데이터 불러오는 중...</div>';
+  try{
+    const data=await loadPortRisk();
+    /* 향후 7일 입고예정 수량 (요약 배너용) */
+    const byDate=calEvents(); let fut7=0;
+    for(let i=0;i<7;i++){const d=addDays(TODAY,i);(byDate[d]||[]).forEach(e=>{if(e.future)fut7+=e.qty;});}
+    let maxLvl=0;
+    const cards=data.map((d,i)=>{
+      const p=PORTS[i]||{n:'?',e:''};
+      const days=(d.daily&&d.daily.time||[]).map((t,k)=>({date:t,gust:d.daily.wind_gusts_10m_max[k]||0,rain:d.daily.precipitation_sum[k]||0,lvl:portRiskLvl(d.daily.wind_gusts_10m_max[k]||0,d.daily.precipitation_sum[k]||0)}));
+      let worst=days[0]||{lvl:0}; days.forEach(dd=>{if(dd.lvl>worst.lvl)worst=dd;});
+      if(worst.lvl>maxLvl)maxLvl=worst.lvl;
+      const m=PR_META[worst.lvl];
+      const strip=days.map(dd=>`<i style="background:${PR_META[dd.lvl].sw}" title="${dd.date.slice(5)} 돌풍 ${Math.round(dd.gust)}km/h · 비 ${Math.round(dd.rain)}mm"></i>`).join('');
+      const worstTxt=worst.lvl>0?`${(worst.date||'').slice(5).replace('-','/')} 돌풍 ${Math.round(worst.gust)}km/h · 비 ${Math.round(worst.rain)}mm`:`최대 돌풍 ${Math.round(Math.max(0,...days.map(x=>x.gust)))}km/h`;
+      return `<div class="pr-card"><div class="pr-top"><span class="pr-name">${p.n}</span><span class="pr-eng">${p.e}</span><span class="pr-pill" style="background:${m.bg};color:${m.c}">${m.t}</span></div>
+        <div class="pr-worst">${worstTxt}</div><div class="pr-strip">${strip}</div></div>`;
+    }).join('');
+    const banner=maxLvl>0?`<div class="pr-banner lvl${maxLvl}">⚠️ 일부 출항지에 ${PR_META[maxLvl].t} 등급 기상 예보 — 향후 7일 입고예정 <b>${fmt(fut7)} Pcs</b>의 출항·하역 지연 가능성을 확인하세요.</div>`
+      :`<div class="pr-banner lvl0">✅ 향후 7일 주요 출항지 기상 양호 — 입고예정 ${fmt(fut7)} Pcs 정상 진행 예상.</div>`;
+    box.innerHTML=`<div class="det-h" style="margin-top:26px">🌊 중국 주요 출항지 기상 리스크 (향후 7일 · 실시간)</div>
+      ${banner}<div class="pr-grid">${cards}</div>
+      <div class="pr-notes">기준: <b>위험</b> 돌풍 90km/h↑ 또는 강수 100mm↑ (출항 결항 가능) · <b>주의</b> 돌풍 60km/h↑ 또는 강수 50mm↑ (하역·출항 지연 가능)<br>
+      계절 리스크: 태풍 7~9월 · 황해 짙은 안개 3~5월(페리 결항) · 장마 6~7월 · 국경절 연휴 10/1~7 · 춘절 전후 공장/물류 중단
+      &nbsp;·&nbsp;<a href="https://www.weather.go.kr/w/typhoon/typ-fcst.do" target="_blank" rel="noopener">기상청 태풍정보 ↗</a>
+      &nbsp;<a href="https://www.windy.com/?31.2,121.5,6" target="_blank" rel="noopener">Windy 바람지도 ↗</a></div>`;
+  }catch(e){
+    box.innerHTML='<div class="det-h" style="margin-top:26px">🌊 중국 주요 출항지 기상 리스크</div><div class="pr-note">기상 데이터를 불러오지 못했습니다. (네트워크 확인)</div>';
+  }
 }
 
 /* ---------- 뷰 전환 ---------- */

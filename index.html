@@ -240,6 +240,17 @@
   .wx-side{display:flex;flex-direction:column;gap:9px;max-height:660px;overflow-y:auto}
   .pr-card.flash{box-shadow:0 0 0 3px var(--blue-soft),0 0 0 5px var(--blue);transition:box-shadow .2s}
   .wxm:hover circle{stroke:#111827}
+  .wxi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 8px 8px;margin-bottom:14px;box-shadow:var(--shadow)}
+  .wxi-head{font-size:13px;font-weight:800;padding:8px 10px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+  .wxi-head .sub{color:var(--muted);font-weight:600;font-size:11px}
+  .wxi-item{display:flex;gap:10px;padding:9px 11px;border-radius:8px;margin:3px 0;font-size:12px;align-items:flex-start}
+  .wxi-item .ic{font-size:15px;line-height:1.4}
+  .wxi-item b{display:block;font-size:12.5px;margin-bottom:2px}
+  .wxi-item .d{color:var(--muted);line-height:1.55}
+  .wxi-item.l2{background:var(--red-soft)} .wxi-item.l2 b{color:#991b1b}
+  .wxi-item.l1{background:var(--amber-soft)} .wxi-item.l1 b{color:#92400e}
+  .wxi-item.l0{background:var(--panel-2)}
+  .wxi-item.lok{background:var(--green-soft)} .wxi-item.lok b{color:#166534}
   .loadmore{margin-top:14px;text-align:center}
   .loadmore button{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 22px;font-weight:700;cursor:pointer;font-size:13px}
   .hidden{display:none}
@@ -856,14 +867,24 @@ const PR_META=[
   {t:'주의',c:'#b45309',bg:'var(--amber-soft)',sw:'#fde68a'},
   {t:'위험',c:'var(--red)',bg:'var(--red-soft)',sw:'#fca5a5'}
 ];
+const SEAS=[
+  {n:'황해 항로',e:'YELLOW SEA',lat:36.0,lon:123.8},
+  {n:'동중국해 항로',e:'EAST CHINA SEA',lat:29.5,lon:124.5},
+  {n:'대만해협',e:'TAIWAN STRAIT',lat:24.5,lon:119.3},
+  {n:'남중국해 항로',e:'SOUTH CHINA SEA',lat:20.5,lon:115.5}
+];
 let prData=null,prAt=0;
 async function loadPortRisk(){
   if(prData&&Date.now()-prAt<30*60*1000)return prData;
-  const url=`https://api.open-meteo.com/v1/forecast?latitude=${PORTS.map(p=>p.lat).join(',')}&longitude=${PORTS.map(p=>p.lon).join(',')}&daily=weather_code,wind_gusts_10m_max,precipitation_sum&forecast_days=7&timezone=Asia%2FShanghai`;
+  const pts=PORTS.concat(SEAS);
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${pts.map(p=>p.lat).join(',')}&longitude=${pts.map(p=>p.lon).join(',')}&daily=weather_code,wind_gusts_10m_max,precipitation_sum&forecast_days=10&timezone=Asia%2FShanghai`;
   const res=await fetch(url); if(!res.ok)throw new Error('wx '+res.status);
   const j=await res.json();
   prData=Array.isArray(j)?j:[j]; prAt=Date.now(); return prData;
 }
+function wxDays(d){return (d.daily&&d.daily.time||[]).map((t,k)=>({date:t,gust:d.daily.wind_gusts_10m_max[k]||0,rain:d.daily.precipitation_sum[k]||0,lvl:portRiskLvl(d.daily.wind_gusts_10m_max[k]||0,d.daily.precipitation_sum[k]||0)}));}
+function wxWorst(days){let w=days[0]||{lvl:0,gust:0,rain:0,date:''};days.forEach(dd=>{if(dd.lvl>w.lvl)w=dd;});return w;}
+function wxD(w){return (w.date||'').slice(5).replace('-','/');}
 /* ---- 중국 지도 (간이 해안선, lon/lat → SVG 좌표) ---- */
 const WXP={lon0:105,lon1:133,lat0:18,lat1:43,w:720,h:640};
 function wxXY(lon,lat){return [(lon-WXP.lon0)/(WXP.lon1-WXP.lon0)*WXP.w,(WXP.lat1-lat)/(WXP.lat1-WXP.lat0)*WXP.h];}
@@ -878,19 +899,36 @@ async function renderWeather(){
   try{
     const data=await loadPortRisk();
     const byDate=calEvents(); let fut7=0;
-    for(let i=0;i<7;i++){const d=addDays(TODAY,i);(byDate[d]||[]).forEach(e=>{if(e.future)fut7+=e.qty;});}
-    let maxLvl=0;
-    const ports=data.map((d,i)=>{
-      const p=PORTS[i]||{n:'?',e:'',lat:30,lon:120};
-      const days=(d.daily&&d.daily.time||[]).map((t,k)=>({date:t,gust:d.daily.wind_gusts_10m_max[k]||0,rain:d.daily.precipitation_sum[k]||0,lvl:portRiskLvl(d.daily.wind_gusts_10m_max[k]||0,d.daily.precipitation_sum[k]||0)}));
-      let worst=days[0]||{lvl:0,gust:0,rain:0}; days.forEach(dd=>{if(dd.lvl>worst.lvl)worst=dd;});
-      if(worst.lvl>maxLvl)maxLvl=worst.lvl;
-      return {...p,days,worst};
+    for(let i=0;i<10;i++){const d=addDays(TODAY,i);(byDate[d]||[]).forEach(e=>{if(e.future)fut7+=e.qty;});}
+    const ports=data.slice(0,PORTS.length).map((d,i)=>({...PORTS[i],days:wxDays(d),worst:wxWorst(wxDays(d))}));
+    const seas=data.slice(PORTS.length).map((d,i)=>({...SEAS[i],days:wxDays(d),worst:wxWorst(wxDays(d))}));
+    /* ---- 운송 영향 이슈 자동 브리핑 ---- */
+    const issues=[];
+    seas.filter(s=>s.worst.lvl===2).forEach(s=>issues.push({lvl:2,ic:'🌀',t:`${s.n} 태풍급 기상 — ${wxD(s.worst)} 돌풍 ${Math.round(s.worst.gust)}km/h`,d:'해당 항로 경유 선박의 결항·우회 가능성 높음. 관련 출항지 선적 일정 재확인 필요.'}));
+    ports.filter(p=>p.worst.lvl===2).forEach(p=>issues.push({lvl:2,ic:'⛔',t:`${p.n} 출항 결항 위험 — ${wxD(p.worst)}`,d:`돌풍 ${Math.round(p.worst.gust)}km/h · 강수 ${Math.round(p.worst.rain)}mm 예보. 해당 항구발 선적 지연에 대비하세요.`}));
+    const ampSeas=seas.filter(s=>s.worst.lvl===1);
+    if(ampSeas.length)issues.push({lvl:1,ic:'🌊',t:`항로 풍랑 주의: ${ampSeas.map(s=>s.n).join(' · ')}`,d:ampSeas.map(s=>`${s.n} ${wxD(s.worst)} 돌풍 ${Math.round(s.worst.gust)}km/h`).join(' / ')+' — 운항 지연 가능.'});
+    const ampPorts=ports.filter(p=>p.worst.lvl===1);
+    if(ampPorts.length)issues.push({lvl:1,ic:'⚠️',t:`출항지 기상 주의: ${ampPorts.map(p=>p.n).join(' · ')}`,d:ampPorts.map(p=>`${p.n} ${wxD(p.worst)} 돌풍 ${Math.round(p.worst.gust)}km/h·비 ${Math.round(p.worst.rain)}mm`).join(' / ')+' — 하역·출항 지연 가능.'});
+    /* 연휴 임박 (물류 중단) */
+    const now=new Date(TODAY);
+    [{n:'중국 국경절 연휴',from:'2026-10-01',to:'2026-10-07',note:'연휴 전 물류 폭주, 연휴 중 공장·항만 중단'},
+     {n:'춘절(설) 연휴',from:'2027-02-05',to:'2027-02-13',note:'전후 2~4주 공장 가동 중단이 일반적'}].forEach(h=>{
+      const dd=Math.ceil((new Date(h.from)-now)/86400000);
+      if(dd>0&&dd<=30)issues.push({lvl:1,ic:'🏮',t:`${h.n} D-${dd} (${h.from.slice(5).replace('-','/')}~${h.to.slice(5).replace('-','/')})`,d:h.note+' — 선적 일정 앞당기기 권장.'});
     });
-    /* 배너 */
-    banner.innerHTML=maxLvl>0
-      ?`<div class="pr-banner lvl${maxLvl}">⚠️ 일부 출항지에 <b>${PR_META[maxLvl].t}</b> 등급 기상 예보 — 향후 7일 입고예정 <b>${fmt(fut7)} Pcs</b>의 출항·하역 지연 가능성을 확인하세요.</div>`
-      :`<div class="pr-banner lvl0">✅ 향후 7일 주요 출항지 기상 양호 — 입고예정 ${fmt(fut7)} Pcs 정상 진행 예상.</div>`;
+    /* 계절 요인 */
+    const mon=now.getMonth()+1;
+    if(mon>=7&&mon<=9)issues.push({lvl:0,ic:'🌀',t:'태풍 시즌(7~9월) 진행 중',d:'서태평양 태풍 빈발 구간 — 항로 예보를 주 단위로 확인하세요.'});
+    else if(mon>=3&&mon<=5)issues.push({lvl:0,ic:'🌫️',t:'황해 안개 시즌(3~5월)',d:'짙은 안개로 인천~웨이하이 등 페리 결항이 잦습니다.'});
+    else if(mon===6)issues.push({lvl:0,ic:'🌧️',t:'장마철(6~7월)',d:'화동·화남 집중호우 — 내륙 운송 지연 가능.'});
+    if(!issues.some(i=>i.lvl>=1))issues.unshift({lvl:-1,ic:'✅',t:'현재 운송에 영향을 줄 심각한 이슈 없음',d:'향후 10일 주요 출항지·항로 기상 양호.'});
+    issues.sort((a,b)=>b.lvl-a.lvl);
+    const hhmm=new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+    banner.innerHTML=`<div class="wxi">
+      <div class="wxi-head">🚨 운송 영향 이슈 브리핑 <span class="sub">향후 10일 자동 분석 · 입고예정 ${fmt(fut7)} Pcs 연계 · ${hhmm} 갱신</span></div>
+      ${issues.map(i=>`<div class="wxi-item ${i.lvl===2?'l2':i.lvl===1?'l1':i.lvl===0?'l0':'lok'}"><span class="ic">${i.ic}</span><div><b>${i.t}</b><div class="d">${i.d}</div></div></div>`).join('')}
+    </div>`;
     /* 지도 */
     const MK_C=['#16a34a','#ca8a04','#dc2626'];
     const inch=wxXY(126.0,37.2), busan=wxXY(129.0,34.9);
@@ -921,6 +959,14 @@ async function renderWeather(){
         <text x="${x+lab[0]}" y="${y+lab[1]}" font-size="11.5" font-weight="800" fill="#374151" text-anchor="${lab[2]||'start'}">${p.n}</text>
         <title>${p.n} (${p.e}) · ${PR_META[p.worst.lvl].t} · ${(p.worst.date||'').slice(5)} 돌풍 ${Math.round(p.worst.gust)}km/h · 비 ${Math.round(p.worst.rain)}mm</title></g>`;
     });
+    /* 항로 해상 풍랑/태풍 마커 */
+    seas.filter(s=>s.worst.lvl>=1).forEach(s=>{
+      const [x,y]=wxXY(s.lon,s.lat), c=s.worst.lvl===2?'#dc2626':'#ca8a04';
+      const pulse=s.worst.lvl===2?`<circle cx="${x}" cy="${y}" r="12" fill="none" stroke="${c}" stroke-width="2"><animate attributeName="r" from="12" to="30" dur="1.4s" repeatCount="indefinite"/><animate attributeName="opacity" from=".7" to="0" dur="1.4s" repeatCount="indefinite"/></circle>`:'';
+      svg+=`<g>${pulse}<text x="${x}" y="${y+6}" font-size="20" text-anchor="middle">🌀</text>
+        <text x="${x}" y="${y+22}" font-size="10" font-weight="800" fill="${c}" text-anchor="middle">${s.n} ${wxD(s.worst)}</text>
+        <title>${s.n} · ${PR_META[s.worst.lvl].t} · ${wxD(s.worst)} 돌풍 ${Math.round(s.worst.gust)}km/h</title></g>`;
+    });
     svg+=`</svg>`;
     map.innerHTML=svg;
     /* 우측 카드 */
@@ -937,7 +983,7 @@ async function renderWeather(){
       card.scrollIntoView({behavior:'smooth',block:'nearest'});
       card.classList.add('flash'); setTimeout(()=>card.classList.remove('flash'),1200);
     }));
-    notes.innerHTML=`<div class="pr-notes">기준: <b>위험</b> 돌풍 90km/h↑ 또는 강수 100mm↑ (출항 결항 가능) · <b>주의</b> 돌풍 60km/h↑ 또는 강수 50mm↑ (하역·출항 지연 가능) · 30분마다 갱신<br>
+    notes.innerHTML=`<div class="pr-notes">기준: <b>위험</b> 돌풍 90km/h↑ 또는 강수 100mm↑ (출항 결항 가능) · <b>주의</b> 돌풍 60km/h↑ 또는 강수 50mm↑ (하역·출항 지연 가능) · 향후 10일 예보 · 항구 8곳 + 항로 해상 4곳 감시 · 30분마다 갱신<br>
       계절 리스크: 태풍 7~9월 · 황해 짙은 안개 3~5월(페리 결항) · 장마 6~7월 · 국경절 연휴 10/1~7 · 춘절 전후 공장/물류 중단
       &nbsp;·&nbsp;<a href="https://www.weather.go.kr/w/typhoon/typ-fcst.do" target="_blank" rel="noopener">기상청 태풍정보 ↗</a>
       &nbsp;<a href="https://www.windy.com/?31.2,121.5,6" target="_blank" rel="noopener">Windy 바람지도 ↗</a></div>`;
@@ -955,6 +1001,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   document.getElementById('pageTitle').textContent=pt[0];
   document.getElementById('pageEyebrow').textContent=pt[1];
   const cal=curView==='calendar', wk=curView==='week', wx=curView==='weather';
+  document.getElementById('kpis').classList.toggle('hidden',wx);
   document.getElementById('tablePanel').classList.toggle('hidden',cal||wk||wx);
   document.getElementById('calPanel').classList.toggle('hidden',!cal);
   document.getElementById('weekPanel').classList.toggle('hidden',!wk);

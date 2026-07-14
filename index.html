@@ -203,6 +203,19 @@
   .cal-ev:hover{filter:brightness(.93)}
   .cal-legend{display:flex;gap:16px;margin-top:10px;font-size:12px;font-weight:600;color:#5b6272;align-items:center}
   .cal-legend i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+  /* ---- 주간 입고 리스트 ---- */
+  .wk-day{margin-bottom:20px}
+  .wk-date{font-size:13px;font-weight:700;margin-bottom:7px;display:flex;align-items:center;gap:8px}
+  .wk-date b{font-size:14px}
+  .wk-day.today .wk-date b{color:var(--active-bg)}
+  .wk-today{background:var(--active-bg);color:#fff;font-size:10px;font-weight:800;padding:1px 8px;border-radius:10px}
+  .wk-dsum{margin-left:auto;font-size:11px;color:var(--muted);font-weight:600}
+  .wk-tbl{width:100%;min-width:0;border-collapse:collapse;font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .wk-tbl th{background:#f9fafb;color:#6b7280;font-weight:700;font-size:11px;padding:8px 12px;text-align:left;border-bottom:1px solid var(--line)}
+  .wk-tbl td{padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+  .wk-tbl tr:last-child td{border-bottom:none}
+  .wk-row{cursor:pointer} .wk-row:hover{background:var(--blue-soft)}
+  .wk-prod{max-width:380px;overflow:hidden;text-overflow:ellipsis}
   .loadmore{margin-top:14px;text-align:center}
   .loadmore button{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 22px;font-weight:700;cursor:pointer;font-size:13px}
   .hidden{display:none}
@@ -271,6 +284,7 @@
       <div class="sp-sec">26SS Production</div>
       <div class="tab active" data-view="main"><div><div class="nk">메인 생산</div><div class="ne">Main</div></div><span class="tcnt" id="tcMain"></span></div>
       <div class="tab" data-view="reorder"><div><div class="nk">리오더</div><div class="ne">Reorder</div></div><span class="tcnt" id="tcRe"></span></div>
+      <div class="tab" data-view="week"><div><div class="nk">주간 입고</div><div class="ne">Weekly</div></div></div>
       <div class="tab" data-view="calendar"><div><div class="nk">캘린더</div><div class="ne">Calendar</div></div></div>
     </nav>
     <div class="sp-note">
@@ -326,6 +340,7 @@
     </div>
 
     <div class="panel hidden" id="calPanel"><div id="cal"></div></div>
+    <div class="panel hidden" id="weekPanel"><div id="week"></div></div>
   </div>
   </main>
 
@@ -385,7 +400,8 @@ function agg(list){
   const done=list.filter(isDone).length;
   return {plan,recv,rest:plan-recv,rate:plan?Math.round(recv/plan*100):0,styles,rows:list.length,done};
 }
-const aMain=agg(MAIN), aRe=agg(REORDER), aActive=agg([...MAIN,...REORDER]);
+let aMain=agg(MAIN), aRe=agg(REORDER), aActive=agg([...MAIN,...REORDER]);
+let syncMsg='내장 데이터 기준';
 
 function ringS(pct,color){
   const r=24,c=2*Math.PI*r,off=c*(1-Math.min(pct,100)/100);
@@ -403,14 +419,19 @@ function scard(title,badge,a,color){
       <div class="ss2">${a.styles}개 스타일 · ${fmt(a.rows)}개 컬러</div>
     </div></div>`;
 }
-document.getElementById('kpis').innerHTML=
-  scard('시즌 통합 입고율','26SS',aActive,'#111827')+
-  scard('메인 생산 현황','MAIN',aMain,'#3b82f6')+
-  scard('리오더 생산 현황','REORDER',aRe,'#ca8a04');
-document.getElementById('tcMain').textContent=aMain.styles;
-document.getElementById('tcRe').textContent=aRe.styles;
-document.getElementById('sideFoot').innerHTML=`구글시트 동기화 기준<br>메인 ${fmt(aMain.rows)} · 리오더 ${fmt(aRe.rows)}건`;
-const PAGE_TITLES={main:['생산스케줄 · 메인','PRODUCTION SCHEDULE · MAIN'],reorder:['생산스케줄 · 리오더','PRODUCTION SCHEDULE · REORDER'],calendar:['입고 캘린더','ARRIVAL CALENDAR']};
+function renderSummary(){
+  aMain=agg(MAIN); aRe=agg(REORDER); aActive=agg([...MAIN,...REORDER]);
+  document.getElementById('kpis').innerHTML=
+    scard('시즌 통합 입고율','26SS',aActive,'#111827')+
+    scard('메인 생산 현황','MAIN',aMain,'#3b82f6')+
+    scard('리오더 생산 현황','REORDER',aRe,'#ca8a04');
+  document.getElementById('tcMain').textContent=aMain.styles;
+  document.getElementById('tcRe').textContent=aRe.styles;
+  document.getElementById('sideFoot').innerHTML=`메인 ${fmt(aMain.rows)} · 리오더 ${fmt(aRe.rows)}건<br>${syncMsg}`;
+}
+renderSummary();
+function setSync(msg){syncMsg=msg;renderSummary();}
+const PAGE_TITLES={main:['생산스케줄 · 메인','PRODUCTION SCHEDULE · MAIN'],reorder:['생산스케줄 · 리오더','PRODUCTION SCHEDULE · REORDER'],week:['주간 입고 현황','WEEKLY ARRIVALS'],calendar:['입고 캘린더','ARRIVAL CALENDAR']};
 
 /* ---------- 그룹핑 (차순 + 스타일) ---------- */
 function groupKey(x){return (x.ord||'')+'|'+x.style;}
@@ -746,6 +767,51 @@ function renderCal(){
   }));
 }
 
+/* ---------- 주간 입고 리스트 ---------- */
+function sundayOf(ds){const p=ds.split('-');const d=new Date(+p[0],+p[1]-1,+p[2]);d.setDate(d.getDate()-d.getDay());return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function addDays(ds,n){const p=ds.split('-');const d=new Date(+p[0],+p[1]-1,+p[2]+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+let weekStart=sundayOf(TODAY);
+const DOWK=['일','월','화','수','목','금','토'];
+function renderWeek(){
+  const byDate=calEvents();
+  const days=[]; for(let i=0;i<7;i++)days.push(addDays(weekStart,i));
+  const weekEnd=days[6];
+  let futSum=0,doneSum=0;
+  days.forEach(d=>(byDate[d]||[]).forEach(e=>{if(e.future)futSum+=e.qty;else doneSum+=e.qty;}));
+  let html=`<div class="cal-nav">
+    <button id="wkPrev">‹ 이전 주</button><div class="cal-title" style="min-width:170px">${weekStart} ~ ${weekEnd}</div><button id="wkNext">다음 주 ›</button>
+    <button id="wkToday">이번 주</button>
+    <span class="cal-sum">입고예정 <b style="color:var(--amber)">${fmt(futSum)}</b> · 입고완료 <b style="color:var(--green)">${fmt(doneSum)}</b> Pcs</span></div>`;
+  days.forEach((d,i)=>{
+    const evs=(byDate[d]||[]).slice().sort((a,b)=>(b.future-a.future)||(a.vendor||'').localeCompare(b.vendor||'','ko')||(b.qty-a.qty));
+    const dayFut=evs.filter(e=>e.future).reduce((s,e)=>s+e.qty,0);
+    const dayDone=evs.filter(e=>!e.future).reduce((s,e)=>s+e.qty,0);
+    const isToday=d===TODAY;
+    html+=`<div class="wk-day${isToday?' today':''}">
+      <div class="wk-date"><b>${d.slice(5).replace('-','/')}</b> (${DOWK[i]})${isToday?' <span class="wk-today">오늘</span>':''}
+        <span class="wk-dsum">${dayFut?`예정 ${fmt(dayFut)}`:''}${dayFut&&dayDone?' · ':''}${dayDone?`완료 ${fmt(dayDone)}`:''}${evs.length?'':'입고 없음'}</span></div>`;
+    if(evs.length){
+      html+=`<table class="wk-tbl"><thead><tr><th style="width:110px">업체</th><th style="width:110px">스타일</th><th>제품명</th><th style="width:90px;text-align:center">구분</th><th style="width:90px;text-align:right">수량</th></tr></thead><tbody>`;
+      evs.forEach(e=>{
+        const kind=e.rem?'<span class="tag" style="background:#fffdf7;color:var(--amber);border:1px dashed #d9a94e">잔량예정</span>':e.future?'<span class="tag" style="background:var(--amber-soft);color:var(--amber)">입고예정</span>':'<span class="tag" style="background:var(--green-soft);color:var(--green)">입고완료</span>';
+        html+=`<tr class="wk-row" data-grp="${e.grp}" data-key="${(e.ord||'')+'|'+e.style}" title="${e.note||e.prod||''}">
+          <td>${e.vendor||'-'}</td><td class="style-link">${e.style}</td><td class="wk-prod">${e.prod||'-'}</td>
+          <td style="text-align:center">${kind}</td><td style="text-align:right;font-weight:800">${fmt(e.qty)}</td></tr>`;
+      });
+      html+=`</tbody></table>`;
+    }
+    html+=`</div>`;
+  });
+  document.getElementById('week').innerHTML=html;
+  document.getElementById('wkPrev').onclick=()=>{weekStart=addDays(weekStart,-7);renderWeek();};
+  document.getElementById('wkNext').onclick=()=>{weekStart=addDays(weekStart,7);renderWeek();};
+  document.getElementById('wkToday').onclick=()=>{weekStart=sundayOf(TODAY);renderWeek();};
+  document.querySelectorAll('.wk-row').forEach(el=>el.addEventListener('click',()=>{
+    const g=buildGroups(el.dataset.grp==='re'?REORDER:MAIN).find(x=>x.key===el.dataset.key);
+    if(g)openModal(g);
+  }));
+}
+
 /* ---------- 뷰 전환 ---------- */
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active','v'));
@@ -754,10 +820,11 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   const pt=PAGE_TITLES[curView]||PAGE_TITLES.main;
   document.getElementById('pageTitle').textContent=pt[0];
   document.getElementById('pageEyebrow').textContent=pt[1];
-  const cal=curView==='calendar';
-  document.getElementById('tablePanel').classList.toggle('hidden',cal);
+  const cal=curView==='calendar', wk=curView==='week';
+  document.getElementById('tablePanel').classList.toggle('hidden',cal||wk);
   document.getElementById('calPanel').classList.toggle('hidden',!cal);
-  if(cal){renderCal();}else{buildFilters();updateSeg();openKeys.clear();render(true);}
+  document.getElementById('weekPanel').classList.toggle('hidden',!wk);
+  if(cal){renderCal();}else if(wk){renderWeek();}else{buildFilters();updateSeg();openKeys.clear();render(true);}
 }));
 ['search','fGender','fOrder','fVendor'].forEach(id=>{
   document.getElementById(id).addEventListener('input',()=>{updateSeg();render(true);});
@@ -769,6 +836,78 @@ document.getElementById('reset').addEventListener('click',()=>{
   updateSeg();render(true);
 });
 buildFilters();updateSeg();render(true);
+
+/* ---------- 구글시트 실시간 자동 동기화 ---------- */
+const SHEET_ID='1ZT5VEyoCKrqIdrOgwFgbrktUQRbpHIU_l2_5IfJ5yDg';
+async function fetchTab(name){
+  const res=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=0&sheet=${encodeURIComponent(name)}`);
+  if(!res.ok)throw new Error('http '+res.status);
+  const t=await res.text();
+  return JSON.parse(t.substring(t.indexOf('{'),t.lastIndexOf('}')+1)).table;
+}
+function _cv(c){
+  if(!c||c.v==null)return '';
+  if(c.f&&/^\d{4}-\d{2}-\d{2}$/.test(c.f))return c.f;
+  if(typeof c.v==='string'){
+    const m=c.v.match(/^Date\((\d+),(\d+),(\d+)/);
+    if(m)return m[1]+'-'+String(+m[2]+1).padStart(2,'0')+'-'+String(+m[3]).padStart(2,'0');
+    return c.v.trim();
+  }
+  return c.v;
+}
+function _nm(v){if(v===''||v==null)return null;if(typeof v==='number')return Math.round(v);const n=parseFloat(String(v).replace(/[, ]/g,''));return isNaN(n)?null:Math.round(n);}
+function _do(v){v=String(v||'');return /^\d{4}-\d{2}-\d{2}$/.test(v)?v:'';}
+const SHEET_MAP={
+  main:{ord:1,otype:3,sz:15,total:22,status:48,input:49,inDateSame:false,due:[46,47,45],rl:50,rem:93,pb:52},
+  re:  {ord:3,otype:3,sz:16,total:23,status:38,input:15,inDateSame:true, due:[35,37,34],rl:83,rem:84,pb:43}
+};
+function rowGen(cells,M){
+  const S=i=>String(_cv(cells[i])||'').trim();
+  const N=i=>_nm(_cv(cells[i]));
+  const style=S(4); if(!/^[A-Z]{1,4}\d/.test(style))return null;
+  const sizes={}; for(let i=0;i<7;i++){const v=N(M.sz+i);if(v)sizes[SIZES[i]]=v;}
+  const total=N(M.total)||0, status=S(M.status);
+  let rl=N(M.rl); if(rl==null)rl=0;
+  const parts=[];
+  for(let b=0;b<5;b++){
+    const dc=M.pb+b*8, tot=N(dc+7), dt=S(dc);
+    const ps={}; for(let i=0;i<6;i++){const v=N(dc+1+i);if(v)ps[SIZES[i]]=v;}
+    if((tot&&tot!==0)||Object.keys(ps).length)parts.push({n:b+1,date:dt,sizes:ps,total:tot||0});
+  }
+  const assumed=/입고완료/.test(status)&&rl===0;
+  const recv=assumed?total:rl;
+  let remain=N(M.rem); if(remain==null)remain=0;
+  const input=_do(S(M.input));
+  let dueDate=''; for(const c of M.due){const v=_do(S(c));if(v){dueDate=v;break;}}
+  return {ord:S(M.ord),gender:S(2),otype:S(M.otype),style,prod:S(6),cc:S(7),color:S(8),vendor:S(9),country:S(10),manager:S(11),
+    cost:N(12),price:N(13),uptag:N(14),input,inDate:M.inDateSame?input:'',dueDate,
+    total,sizes,recv,recvLogged:rl,assumed,status,remain,partials:parts};
+}
+function transformTab(table,M){
+  const out=[];
+  (table.rows||[]).forEach(r=>{
+    const rec=rowGen(r.c||[],M); if(rec)out.push(rec);
+  });
+  return out;
+}
+async function syncFromSheet(){
+  try{
+    const [tm,tr]=await Promise.all([fetchTab('메인'),fetchTab('리오더')]);
+    const nm=transformTab(tm,SHEET_MAP.main), nr=transformTab(tr,SHEET_MAP.re);
+    if(nm.length<500||nr.length<200)throw new Error('rows too few: '+nm.length+'/'+nr.length);
+    applyFutureIntake(nm); applyFutureIntake(nr);
+    MAIN.splice(0,MAIN.length,...nm); REORDER.splice(0,REORDER.length,...nr);
+    const hh=new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+    setSync('🟢 구글시트 실시간 동기화 '+hh);
+    if(curView==='calendar'){renderCal();}
+    else if(curView==='week'){renderWeek();}
+    else{buildFilters();updateSeg();render(true);}
+  }catch(e){
+    setSync('⚪ 내장 데이터 기준 (시트 연결 실패)');
+  }
+}
+syncFromSheet();
+setInterval(syncFromSheet,10*60*1000);
 </script>
 </body>
 </html>
